@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { StudentModal } from '../components/students/StudentModal';
+import { ExcusesModal } from '../components/excuses/ExcusesModal';
 import { StudentStatusBadge } from '../components/ui/Badge';
-import { StorageService } from '../lib/storage';
+import { StorageService, STANDARD_BATCHES } from '../lib/storage';
 import { exportToCsv, exportToExcel, exportToPdf, triggerPrint } from '../lib/export-utils';
 import { Student } from '../types/database';
 import {
@@ -20,11 +21,12 @@ import {
   Phone,
   Layers,
   Send,
-  Clock
+  Clock,
+  ShieldAlert
 } from 'lucide-react';
 
 export const StudentsPage: React.FC = () => {
-  const { students, refreshData, showToast } = useApp();
+  const { students, excuses, refreshData, showToast } = useApp();
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedBatch, setSelectedBatch] = useState<string>('all');
@@ -34,6 +36,9 @@ export const StudentsPage: React.FC = () => {
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
 
+  // Excuse modal state
+  const [excusesModalOpen, setExcusesModalOpen] = useState<boolean>(false);
+
   // Student summary cards
   const summary = useMemo(() => {
     const total = students.length;
@@ -41,12 +46,15 @@ export const StudentsPage: React.FC = () => {
     const batches = new Set(students.map((s: Student) => s.batch)).size;
     const dispatched = students.filter((s: Student) => s.current_status === 'Dispatched').length;
     const pending = students.filter((s: Student) => s.current_status === 'Settlement Pending').length;
-    return { total, active, batches, dispatched, pending };
+    const excused = students.filter((s: Student) => s.current_status === 'Excused').length;
+    return { total, active, batches, dispatched, pending, excused };
   }, [students]);
 
-  // Unique batches
+  // Unique batches list featuring standard batches
   const batchesList = useMemo(() => {
-    return Array.from(new Set(students.map((s: Student) => s.batch))).sort();
+    const set = new Set<string>(STANDARD_BATCHES);
+    students.forEach((s: Student) => set.add(s.batch));
+    return Array.from(set).sort();
   }, [students]);
 
   // Filtered & sorted student list
@@ -155,9 +163,9 @@ export const StudentsPage: React.FC = () => {
             <Layers className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Batches / Cohorts</p>
-            <p className="text-xl sm:text-2xl font-extrabold text-slate-900">{summary.batches}</p>
-            <p className="text-[10px] text-slate-400">Enrolled academic groups</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Active Batches</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-slate-900">{batchesList.length}</p>
+            <p className="text-[10px] text-slate-400">plus one A, plus one B, Batch 13</p>
           </div>
         </div>
 
@@ -172,19 +180,22 @@ export const StudentsPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3.5">
+        <div
+          onClick={() => setExcusesModalOpen(true)}
+          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3.5 cursor-pointer hover:border-rose-300 transition-colors"
+        >
           <div className="p-3 bg-rose-50 text-rose-700 rounded-xl shrink-0">
-            <Clock className="w-5 h-5" />
+            <UserCheck className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Pending Settlement</p>
-            <p className="text-xl sm:text-2xl font-extrabold text-slate-900">{summary.pending}</p>
-            <p className="text-[10px] text-slate-400">Awaiting money return</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Excused Duty</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-rose-700">{summary.excused}</p>
+            <p className="text-[10px] text-slate-400">Exempted from field duty</p>
           </div>
         </div>
       </div>
 
-      {/* Control Bar: Search, Filters, and Export Buttons */}
+      {/* Control Bar: Search, Filters, and Actions */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Search Box */}
@@ -207,6 +218,16 @@ export const StudentsPage: React.FC = () => {
             >
               <Plus className="w-4 h-4" />
               <span>Add Student</span>
+            </button>
+
+            {/* Excuse Option in Student Tab */}
+            <button
+              onClick={() => setExcusesModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 shadow-xs transition-colors"
+              title="Manage Excused Students"
+            >
+              <UserCheck className="w-4 h-4 text-rose-600" />
+              <span>Excuse Student ({excuses.length})</span>
             </button>
 
             <button
@@ -312,24 +333,17 @@ export const StudentsPage: React.FC = () => {
             <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3">
               <Users className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-slate-800">No students found</h3>
+            <h3 className="text-base font-bold text-slate-800">No students registered yet</h3>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              {searchTerm || selectedBatch !== 'all' || selectedStatus !== 'all'
-                ? 'Try clearing active search or batch filters to see registered students.'
-                : 'Click "Add Student" above to register your first student into the portal.'}
+              Ready to begin! Click "Add Student" above to register students in plus one A, plus one B, or Batch 13.
             </p>
-            {(searchTerm || selectedBatch !== 'all' || selectedStatus !== 'all') && (
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setSelectedBatch('all');
-                  setSelectedStatus('all');
-                }}
-                className="mt-3 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700"
-              >
-                Clear All Filters
-              </button>
-            )}
+            <button
+              onClick={handleOpenAdd}
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-skyblue-600 hover:bg-skyblue-700 shadow-xs"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Register First Student</span>
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto custom-scrollbar">
@@ -366,8 +380,8 @@ export const StudentsPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center gap-1 font-medium text-slate-700">
-                        <Layers className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
+                        <Layers className="w-3.5 h-3.5 text-skyblue-600" />
                         {student.batch}
                       </span>
                     </td>
@@ -382,10 +396,25 @@ export const StudentsPage: React.FC = () => {
                       )}
                     </td>
                     <td className="py-3.5 px-4">
-                      <StudentStatusBadge status={student.current_status} />
+                      <div className="space-y-0.5">
+                        <StudentStatusBadge status={student.current_status} />
+                        {student.current_status === 'Excused' && student.excuse_reason && (
+                          <p className="text-[10px] text-rose-600 font-medium truncate max-w-xs">
+                            Reason: {student.excuse_reason}
+                          </p>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 text-right no-print">
                       <div className="flex items-center justify-end gap-1.5">
+                        {/* Direct Excuse Student Option */}
+                        <button
+                          onClick={() => setExcusesModalOpen(true)}
+                          title="Record Excuse / Exemption for this student"
+                          className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 transition-colors"
+                        >
+                          <UserCheck className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => handleOpenEdit(student)}
                           title="Edit student"
@@ -423,6 +452,12 @@ export const StudentsPage: React.FC = () => {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         studentToEdit={studentToEdit}
+      />
+
+      {/* Excuses Modal */}
+      <ExcusesModal
+        isOpen={excusesModalOpen}
+        onClose={() => setExcusesModalOpen(false)}
       />
     </div>
   );

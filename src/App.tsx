@@ -9,6 +9,7 @@ import { StudentsPage } from './pages/StudentsPage';
 import { DispatchesPage } from './pages/DispatchesPage';
 import { SettlePage } from './pages/SettlePage';
 import { ExportsPage } from './pages/ExportsPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { StudentModal } from './components/students/StudentModal';
 import { CreateDispatchModal } from './components/dispatches/CreateDispatchModal';
 import { GraduationCap, Loader2 } from 'lucide-react';
@@ -55,6 +56,7 @@ const PortalRoot: React.FC = () => {
       {currentTab === 'dispatches' && <DispatchesPage />}
       {currentTab === 'settle' && <SettlePage />}
       {currentTab === 'exports' && <ExportsPage />}
+      {currentTab === 'settings' && <SettingsPage />}
 
       {/* Global Quick Action Modals */}
       <StudentModal

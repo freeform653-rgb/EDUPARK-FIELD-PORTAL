@@ -7,6 +7,7 @@ import {
   getLocalDateString,
   matchesDateFilter
 } from '../lib/calculations';
+import { STANDARD_BATCHES } from '../lib/storage';
 import {
   DateFilterType,
   Student,
@@ -50,15 +51,16 @@ export const ExportsPage: React.FC = () => {
   const [customStart, setCustomStart] = useState<string>(getLocalDateString(new Date(Date.now() - 86400000 * 30)));
   const [customEnd, setCustomEnd] = useState<string>(getLocalDateString());
   const [batchFilter, setBatchFilter] = useState<string>('all');
-  const [studentFilter] = useState<string>('all');
+  const [studentFilter, setStudentFilter] = useState<string>('all');
   const [destinationFilter, setDestinationFilter] = useState<string>('');
+  const [studentReportView, setStudentReportView] = useState<'daily' | 'summary'>('daily');
 
   // 12 Report Categories with descriptive meta
   const reportOptions: { id: ReportType; title: string; desc: string; icon: any }[] = [
-    { id: 'students', title: '1. Student List', desc: 'Active and archived student directory with batch records', icon: Users },
-    { id: 'dispatches', title: '2. Dispatch Register', desc: 'Log of all field dispatches, destinations, and team allocations', icon: Send },
-    { id: 'student_history', title: '3. Student Dispatch History', desc: 'Individual student participation track record', icon: Users },
-    { id: 'team_dispatches', title: '4. Team Dispatch Report', desc: 'Team field coordination, group assignments, and progress', icon: Send },
+    { id: 'students', title: '1. Student List', desc: 'Student directory with cohort & active status', icon: Users },
+    { id: 'dispatches', title: '2. Dispatch Register', desc: 'Log of field dispatches, allowance, & calendars', icon: Send },
+    { id: 'student_history', title: '3. Individual Student Report', desc: 'Gross total cash & GPay, settled total, and expenses by day, week, & all days', icon: Users },
+    { id: 'team_dispatches', title: '4. Team Dispatch Report', desc: 'Team field coordination, member duty, & progress', icon: Send },
     { id: 'settlements', title: '5. Settlement Register', desc: 'Comprehensive financial settlement audit ledger', icon: CreditCard },
     { id: 'cash_collection', title: '6. Cash Collection Report', desc: 'Direct cash donations deposited from field visits', icon: DollarSign },
     { id: 'gpay_collection', title: '7. GPay / UPI Collection Report', desc: 'Digital QR and UPI transactions verified', icon: DollarSign },
@@ -69,9 +71,11 @@ export const ExportsPage: React.FC = () => {
     { id: 'outstanding_settlement', title: '12. Outstanding Settlement Report', desc: 'Pending dispatches and unsettled field collections', icon: CreditCard },
   ];
 
-  // Unique batches
+  // Batches list featuring standard batches
   const batchesList = useMemo(() => {
-    return Array.from(new Set(students.map((s: Student) => s.batch))).sort();
+    const set = new Set<string>(STANDARD_BATCHES);
+    students.forEach((s: Student) => set.add(s.batch));
+    return Array.from(set).sort();
   }, [students]);
 
   // Generate dataset and columns dynamically based on selected report
@@ -79,7 +83,7 @@ export const ExportsPage: React.FC = () => {
     let rawData: any[] = [];
     let cols: ExportColumn[] = [];
     let title = '';
-    let summary: Record<string, any> | undefined = undefined;
+    let summary: Record<string, string> | undefined = undefined;
 
     switch (selectedReport) {
       case 'students':
@@ -111,6 +115,7 @@ export const ExportsPage: React.FC = () => {
           { header: 'Date', key: 'dispatch_date', format: (v: any) => formatDisplayDate(v) },
           { header: 'Type', key: 'dispatch_type' },
           { header: 'Students', key: 'total_students' },
+          { header: 'Allowance (₹)', key: 'target_amount', format: (v: any) => formatCurrency(v) },
           { header: 'Calendars Issued', key: 'total_calendars_issued' },
           { header: 'Calendars Returned', key: 'total_calendars_returned' },
           { header: 'Total Collected', key: 'total_collected', format: (v: any) => formatCurrency(v) },
@@ -119,40 +124,180 @@ export const ExportsPage: React.FC = () => {
         break;
 
       case 'student_history':
-        title = 'Student Dispatch History Report';
-        const rows: any[] = [];
-        dispatches.forEach((d: PopulatedDispatch) => {
-          d.assignments.forEach((a: PopulatedAssignment) => {
-            if (studentFilter !== 'all' && a.student_id !== studentFilter) return;
-            if (batchFilter !== 'all' && a.student.batch !== batchFilter) return;
-            if (!matchesDateFilter(d.dispatch_date, dateFilter, customStart, customEnd)) return;
-            rows.push({
-              student_name: a.student.full_name,
-              batch: a.student.batch,
-              destination: d.destination,
-              dispatch_date: d.dispatch_date,
-              type: d.dispatch_type,
-              calendars_issued: a.calendars_issued,
-              calendars_returned: a.settlement?.calendars_returned || 0,
-              collected: a.settlement?.total_collected || 0,
-              net: a.settlement?.net_collection || 0,
-              status: a.assignment_status,
+        title = studentReportView === 'summary'
+          ? 'Individual Student Summary Report'
+          : 'Individual Student Daily Financial & Settlement Report';
+
+        if (studentReportView === 'summary') {
+          // Consolidated Student Summary: Each row is an individual student with their gross cash, gpay, settled total, and expenses across the selected period
+          const studentMap = new Map<string, {
+            student: Student;
+            dispatchesCount: number;
+            cash: number;
+            gpay: number;
+            settled_total: number;
+            expenses: number;
+            net: number;
+            allowance: number;
+            calendars_issued: number;
+            calendars_returned: number;
+          }>();
+
+          students.forEach((s: Student) => {
+            if (studentFilter !== 'all' && s.id !== studentFilter) return;
+            if (batchFilter !== 'all' && s.batch !== batchFilter) return;
+            studentMap.set(s.id, {
+              student: s,
+              dispatchesCount: 0,
+              cash: 0,
+              gpay: 0,
+              settled_total: 0,
+              expenses: 0,
+              net: 0,
+              allowance: 0,
+              calendars_issued: 0,
+              calendars_returned: 0,
             });
           });
-        });
-        rawData = rows;
-        cols = [
-          { header: 'Student Name', key: 'student_name' },
-          { header: 'Batch', key: 'batch' },
-          { header: 'Destination', key: 'destination' },
-          { header: 'Dispatch Date', key: 'dispatch_date', format: (v: any) => formatDisplayDate(v) },
-          { header: 'Type', key: 'type' },
-          { header: 'Issued', key: 'calendars_issued' },
-          { header: 'Returned', key: 'calendars_returned' },
-          { header: 'Collected (₹)', key: 'collected', format: (v: any) => formatCurrency(v) },
-          { header: 'Net (₹)', key: 'net', format: (v: any) => formatCurrency(v) },
-          { header: 'Status', key: 'status' },
-        ];
+
+          dispatches.forEach((d: PopulatedDispatch) => {
+            if (!matchesDateFilter(d.dispatch_date, dateFilter, customStart, customEnd)) return;
+            if (destinationFilter && !d.destination.toLowerCase().includes(destinationFilter.toLowerCase())) return;
+
+            d.assignments.forEach((a: PopulatedAssignment) => {
+              const entry = studentMap.get(a.student_id);
+              if (entry) {
+                entry.dispatchesCount += 1;
+                entry.calendars_issued += a.calendars_issued || 0;
+                entry.allowance += d.target_amount || 0;
+                if (a.settlement) {
+                  entry.cash += a.settlement.cash_amount || 0;
+                  entry.gpay += a.settlement.gpay_amount || 0;
+                  entry.settled_total += a.settlement.total_collected || 0;
+                  entry.expenses += a.settlement.expenses || 0;
+                  entry.net += a.settlement.net_collection || 0;
+                  entry.calendars_returned += a.settlement.calendars_returned || 0;
+                }
+              }
+            });
+          });
+
+          const summaryList = Array.from(studentMap.values())
+            .filter(item => item.dispatchesCount > 0 || studentFilter === item.student.id)
+            .map(item => ({
+              student_name: item.student.full_name,
+              batch: item.student.batch,
+              dispatches_count: item.dispatchesCount,
+              cash: item.cash,
+              gpay: item.gpay,
+              settled_total: item.settled_total,
+              expenses: item.expenses,
+              net: item.net,
+              allowance: item.allowance,
+              calendars_issued: item.calendars_issued,
+              calendars_returned: item.calendars_returned,
+              outstanding: Math.max(0, item.calendars_issued - item.calendars_returned),
+            }));
+
+          rawData = summaryList;
+          cols = [
+            { header: 'Student Name', key: 'student_name' },
+            { header: 'Batch', key: 'batch' },
+            { header: 'Dispatches', key: 'dispatches_count' },
+            { header: 'Gross Cash (₹)', key: 'cash', format: (v: any) => formatCurrency(v) },
+            { header: 'Gross GPay/UPI (₹)', key: 'gpay', format: (v: any) => formatCurrency(v) },
+            { header: 'Settled Total (₹)', key: 'settled_total', format: (v: any) => formatCurrency(v) },
+            { header: 'Expenses (₹)', key: 'expenses', format: (v: any) => formatCurrency(v) },
+            { header: 'Net Deposited (₹)', key: 'net', format: (v: any) => formatCurrency(v) },
+            { header: 'Allowance (₹)', key: 'allowance', format: (v: any) => formatCurrency(v) },
+            { header: 'Calendars Issued', key: 'calendars_issued' },
+            { header: 'Calendars Returned', key: 'calendars_returned' },
+            { header: 'Outstanding', key: 'outstanding' },
+          ];
+
+          summary = {
+            student_name: `Total: ${summaryList.length} Students`,
+            batch: '',
+            dispatches_count: String(summaryList.reduce((sum, r) => sum + r.dispatches_count, 0)),
+            cash: formatCurrency(summaryList.reduce((sum, r) => sum + r.cash, 0)),
+            gpay: formatCurrency(summaryList.reduce((sum, r) => sum + r.gpay, 0)),
+            settled_total: formatCurrency(summaryList.reduce((sum, r) => sum + r.settled_total, 0)),
+            expenses: formatCurrency(summaryList.reduce((sum, r) => sum + r.expenses, 0)),
+            net: formatCurrency(summaryList.reduce((sum, r) => sum + r.net, 0)),
+            allowance: formatCurrency(summaryList.reduce((sum, r) => sum + r.allowance, 0)),
+            calendars_issued: String(summaryList.reduce((sum, r) => sum + r.calendars_issued, 0)),
+            calendars_returned: String(summaryList.reduce((sum, r) => sum + r.calendars_returned, 0)),
+            outstanding: String(summaryList.reduce((sum, r) => sum + r.outstanding, 0)),
+          };
+        } else {
+          // Daily Breakdown: Every row is an individual student field visit on each day
+          const rows: any[] = [];
+          dispatches.forEach((d: PopulatedDispatch) => {
+            if (!matchesDateFilter(d.dispatch_date, dateFilter, customStart, customEnd)) return;
+            if (destinationFilter && !d.destination.toLowerCase().includes(destinationFilter.toLowerCase())) return;
+
+            d.assignments.forEach((a: PopulatedAssignment) => {
+              if (studentFilter !== 'all' && a.student_id !== studentFilter) return;
+              if (batchFilter !== 'all' && a.student.batch !== batchFilter) return;
+
+              const cash = a.settlement?.cash_amount || 0;
+              const gpay = a.settlement?.gpay_amount || 0;
+              const settledTotal = a.settlement?.total_collected || 0;
+              const expenses = a.settlement?.expenses || 0;
+              const net = a.settlement?.net_collection || 0;
+
+              rows.push({
+                dispatch_date: d.dispatch_date,
+                student_name: a.student.full_name,
+                batch: a.student.batch,
+                destination: d.destination,
+                type: d.dispatch_type,
+                cash: cash,
+                gpay: gpay,
+                settled_total: settledTotal,
+                expenses: expenses,
+                net: net,
+                allowance: d.target_amount || 0,
+                calendars: `${a.settlement?.calendars_returned || 0} / ${a.calendars_issued}`,
+                status: a.assignment_status,
+              });
+            });
+          });
+
+          // Sort rows by dispatch date descending
+          rows.sort((a, b) => b.dispatch_date.localeCompare(a.dispatch_date));
+
+          rawData = rows;
+          cols = [
+            { header: 'Date', key: 'dispatch_date', format: (v: any) => formatDisplayDate(v) },
+            { header: 'Student Name', key: 'student_name' },
+            { header: 'Batch', key: 'batch' },
+            { header: 'Destination', key: 'destination' },
+            { header: 'Gross Cash (₹)', key: 'cash', format: (v: any) => formatCurrency(v) },
+            { header: 'Gross GPay/UPI (₹)', key: 'gpay', format: (v: any) => formatCurrency(v) },
+            { header: 'Settled Total (₹)', key: 'settled_total', format: (v: any) => formatCurrency(v) },
+            { header: 'Expenses (₹)', key: 'expenses', format: (v: any) => formatCurrency(v) },
+            { header: 'Net Deposited (₹)', key: 'net', format: (v: any) => formatCurrency(v) },
+            { header: 'Allowance (₹)', key: 'allowance', format: (v: any) => formatCurrency(v) },
+            { header: 'Calendars', key: 'calendars' },
+            { header: 'Status', key: 'status' },
+          ];
+
+          summary = {
+            dispatch_date: '',
+            student_name: `Total: ${rows.length} Records`,
+            batch: '',
+            destination: '',
+            cash: formatCurrency(rows.reduce((sum, r) => sum + r.cash, 0)),
+            gpay: formatCurrency(rows.reduce((sum, r) => sum + r.gpay, 0)),
+            settled_total: formatCurrency(rows.reduce((sum, r) => sum + r.settled_total, 0)),
+            expenses: formatCurrency(rows.reduce((sum, r) => sum + r.expenses, 0)),
+            net: formatCurrency(rows.reduce((sum, r) => sum + r.net, 0)),
+            allowance: formatCurrency(rows.reduce((sum, r) => sum + r.allowance, 0)),
+            calendars: '',
+            status: '',
+          };
+        }
         break;
 
       case 'team_dispatches':
@@ -167,8 +312,13 @@ export const ExportsPage: React.FC = () => {
           { header: 'Dispatch ID', key: 'id' },
           { header: 'Destination', key: 'destination' },
           { header: 'Date', key: 'dispatch_date', format: (v: any) => formatDisplayDate(v) },
-          { header: 'Team Members', key: 'assignments', format: (a: any[]) => a.map(asgn => asgn.student.full_name).join(', ') },
-          { header: 'Settled Progress', key: 'settled_students', format: (v: any, r: any) => `${v} of ${r.total_students} Settled` },
+          {
+            header: 'Team Members',
+            key: 'assignments',
+            format: (a: any[]) => Array.isArray(a) ? a.map(asgn => asgn?.student?.full_name || 'Member').join(', ') : 'N/A'
+          },
+          { header: 'Allowance (₹)', key: 'target_amount', format: (v: any) => formatCurrency(v) },
+          { header: 'Settled Progress', key: 'settled_students', format: (v: any, r: any) => `${v || 0} of ${r?.total_students || 0} Settled` },
           { header: 'Calendars Issued', key: 'total_calendars_issued' },
           { header: 'Total Collected', key: 'total_collected', format: (v: any) => formatCurrency(v) },
           { header: 'Status', key: 'status' },
@@ -182,7 +332,7 @@ export const ExportsPage: React.FC = () => {
       case 'net_collection':
         if (selectedReport === 'cash_collection') title = 'Cash Collection Report';
         else if (selectedReport === 'gpay_collection') title = 'GPay / UPI Collection Report';
-        else if (selectedReport === 'expenses') title = 'Field Expenses Report';
+        else if (selectedReport === 'expenses') title = 'Travel & Food Expenses Report';
         else if (selectedReport === 'net_collection') title = 'Net Campus Collection Report';
         else title = 'Comprehensive Settlement Register';
 
@@ -198,19 +348,19 @@ export const ExportsPage: React.FC = () => {
 
         cols = [
           { header: 'Receipt ID', key: 'id' },
-          { header: 'Student Name', key: 'student', format: (s: any) => s.full_name },
-          { header: 'Batch', key: 'student', format: (s: any) => s.batch },
-          { header: 'Destination', key: 'dispatch', format: (d: any) => d.destination },
+          { header: 'Student Name', key: 'student', format: (s: any) => s?.full_name || 'N/A' },
+          { header: 'Batch', key: 'student', format: (s: any) => s?.batch || 'N/A' },
+          { header: 'Destination', key: 'dispatch', format: (d: any) => d?.destination || 'N/A' },
           { header: 'Settlement Date', key: 'settlement_date', format: (v: any) => formatDisplayDate(v) },
           { header: 'Cash (₹)', key: 'cash_amount', format: (v: any) => formatCurrency(v) },
           { header: 'GPay/UPI (₹)', key: 'gpay_amount', format: (v: any) => formatCurrency(v) },
           { header: 'Total (₹)', key: 'total_collected', format: (v: any) => formatCurrency(v) },
           { header: 'Expenses (₹)', key: 'expenses', format: (v: any) => formatCurrency(v) },
-          { header: 'Net (₹)', key: 'net_collection', format: (v: any) => formatCurrency(v) },
-          { header: 'Returned', key: 'calendars_returned' },
+          { header: 'Net Deposited (₹)', key: 'net_collection', format: (v: any) => formatCurrency(v) },
+          { header: 'Returned Calendars', key: 'calendars_returned' },
         ];
 
-        // Compute Financial Summary Row
+        // Compute Financial Summary Row as string-safe values
         const totCash = rawData.reduce((sum: number, s: PopulatedSettlement) => sum + s.cash_amount, 0);
         const totGpay = rawData.reduce((sum: number, s: PopulatedSettlement) => sum + s.gpay_amount, 0);
         const totGross = rawData.reduce((sum: number, s: PopulatedSettlement) => sum + s.total_collected, 0);
@@ -220,15 +370,15 @@ export const ExportsPage: React.FC = () => {
 
         summary = {
           id: 'TOTALS',
-          student: { full_name: `${rawData.length} Transactions`, batch: '' },
-          dispatch: { destination: '' },
+          student: `${rawData.length} Settlements`,
+          dispatch: '',
           settlement_date: '',
           cash_amount: formatCurrency(totCash),
           gpay_amount: formatCurrency(totGpay),
           total_collected: formatCurrency(totGross),
           expenses: formatCurrency(totExp),
           net_collection: formatCurrency(totNet),
-          calendars_returned: totRet,
+          calendars_returned: String(totRet),
         };
         break;
 
@@ -240,8 +390,8 @@ export const ExportsPage: React.FC = () => {
           return true;
         });
         cols = [
-          { header: 'Student Name', key: 'student', format: (s: any) => s.full_name },
-          { header: 'Batch', key: 'student', format: (s: any) => s.batch },
+          { header: 'Student Name', key: 'student', format: (s: any) => s?.full_name || 'N/A' },
+          { header: 'Batch', key: 'student', format: (s: any) => s?.batch || 'N/A' },
           { header: 'Date', key: 'excuse_date', format: (v: any) => formatDisplayDate(v) },
           { header: 'Reason', key: 'reason' },
           { header: 'Notes', key: 'notes', format: (v: any) => v || 'N/A' },
@@ -283,7 +433,7 @@ export const ExportsPage: React.FC = () => {
         break;
 
       case 'outstanding_settlement':
-        title = 'Outstanding Field Duty & Settlement Report';
+        title = 'Outstanding Field Duty & Pending Settlement Report';
         const pendingRows: any[] = [];
         dispatches.forEach((d: PopulatedDispatch) => {
           if (d.status !== 'Cancelled') {
@@ -296,7 +446,7 @@ export const ExportsPage: React.FC = () => {
                   dispatch_date: d.dispatch_date,
                   type: d.dispatch_type,
                   calendars_issued: a.calendars_issued,
-                  target_amount: d.target_amount,
+                  travel_advance: d.target_amount,
                 });
               }
             });
@@ -310,7 +460,7 @@ export const ExportsPage: React.FC = () => {
           { header: 'Dispatch Date', key: 'dispatch_date', format: (v: any) => formatDisplayDate(v) },
           { header: 'Type', key: 'type' },
           { header: 'Calendars Issued', key: 'calendars_issued' },
-          { header: 'Expected Target (₹)', key: 'target_amount', format: (v: any) => formatCurrency(v) },
+          { header: 'Allowance Given (₹)', key: 'travel_advance', format: (v: any) => formatCurrency(v) },
         ];
         break;
     }
@@ -327,7 +477,8 @@ export const ExportsPage: React.FC = () => {
     customEnd,
     batchFilter,
     studentFilter,
-    destinationFilter
+    destinationFilter,
+    studentReportView
   ]);
 
   const handleExportCsv = () => {
@@ -341,8 +492,8 @@ export const ExportsPage: React.FC = () => {
   };
 
   const handleExportPdf = () => {
-    exportToPdf(reportTitle, columns, data, `Filter: ${dateFilter} | Records: ${data.length}`);
-    showToast(`Downloaded ${reportTitle} PDF.`, 'success');
+    exportToPdf(reportTitle, columns, data, `Filter: ${dateFilter} | Total Records: ${data.length}`);
+    showToast(`Generated ${reportTitle} PDF.`, 'success');
   };
 
   return (
@@ -444,13 +595,13 @@ export const ExportsPage: React.FC = () => {
           <select
             value={dateFilter}
             onChange={(e: any) => setDateFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
+            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium"
           >
-            <option value="all">All Dates</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
+            <option value="all">All Days (All Time)</option>
+            <option value="today">Today (Each Day)</option>
+            <option value="week">This Week (Weekly)</option>
             <option value="month">This Month</option>
-            <option value="custom">Custom Range</option>
+            <option value="custom">Custom Date Range</option>
           </select>
 
           {dateFilter === 'custom' && (
@@ -474,11 +625,23 @@ export const ExportsPage: React.FC = () => {
           <select
             value={batchFilter}
             onChange={(e) => setBatchFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
+            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium"
           >
             <option value="all">All Batches</option>
-            {batchesList.map((b: string) => (
+            {batchesList.map(b => (
               <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
+
+          {/* Student Filter Selector */}
+          <select
+            value={studentFilter}
+            onChange={(e) => setStudentFilter(e.target.value)}
+            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium"
+          >
+            <option value="all">All Students</option>
+            {students.map(s => (
+              <option key={s.id} value={s.id}>{s.full_name} ({s.batch})</option>
             ))}
           </select>
 
@@ -487,8 +650,36 @@ export const ExportsPage: React.FC = () => {
             value={destinationFilter}
             onChange={(e) => setDestinationFilter(e.target.value)}
             placeholder="Filter destination..."
-            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 w-40"
+            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 w-44"
           />
+
+          {/* View Mode Toggle for Individual Student Report */}
+          {selectedReport === 'student_history' && (
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 ml-auto">
+              <button
+                type="button"
+                onClick={() => setStudentReportView('daily')}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                  studentReportView === 'daily'
+                    ? 'bg-white text-navy-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Daily Ledger (Each Day)
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudentReportView('summary')}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                  studentReportView === 'summary'
+                    ? 'bg-white text-navy-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Student Summary (Totals)
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -515,7 +706,7 @@ export const ExportsPage: React.FC = () => {
             <FileSpreadsheet className="w-10 h-10 text-slate-300 mx-auto mb-2" />
             <h3 className="text-base font-bold text-slate-800">No records found for this report</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Try adjusting the date range or batch filters above to include matching entries.
+              There are no matching entries under current filters. Add new records or adjust filters above.
             </p>
           </div>
         ) : (
@@ -537,10 +728,13 @@ export const ExportsPage: React.FC = () => {
                     <td className="py-3 px-3.5 text-slate-400 font-mono text-[10px]">{idx + 1}</td>
                     {columns.map(c => {
                       const val = row[c.key];
-                      const formatted = c.format ? c.format(val, row) : (val ?? '—');
+                      let display = c.format ? c.format(val, row) : (val ?? '—');
+                      if (typeof display === 'object' && display !== null) {
+                        display = display.full_name || display.destination || '—';
+                      }
                       return (
                         <td key={c.header} className="py-3 px-3.5 whitespace-nowrap">
-                          {formatted}
+                          {display}
                         </td>
                       );
                     })}
@@ -553,11 +747,14 @@ export const ExportsPage: React.FC = () => {
                 <tfoot>
                   <tr className="bg-slate-100 font-bold border-t-2 border-slate-300 text-slate-900">
                     <td className="py-3 px-3.5 font-bold">TOTAL</td>
-                    {columns.map(c => (
-                      <td key={c.header} className="py-3 px-3.5 whitespace-nowrap font-bold">
-                        {summaryRow[c.key] ?? ''}
-                      </td>
-                    ))}
+                    {columns.map(c => {
+                      const cellVal = summaryRow[c.key] ?? '';
+                      return (
+                        <td key={c.header} className="py-3 px-3.5 whitespace-nowrap font-bold">
+                          {String(cellVal)}
+                        </td>
+                      );
+                    })}
                   </tr>
                 </tfoot>
               )}

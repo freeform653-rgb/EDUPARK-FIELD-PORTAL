@@ -6,7 +6,35 @@ import { formatDisplayDate, getLocalDateString } from './calculations';
 export interface ExportColumn {
   header: string;
   key: string;
-  format?: (value: any, row: any) => string;
+  format?: (value: any, row?: any) => string;
+}
+
+/**
+ * Format any value into a clean display string without crashing
+ */
+function safeCellString(val: any, row?: any, formatFn?: (v: any, r?: any) => string): string {
+  if (val === null || val === undefined) return '';
+
+  if (formatFn) {
+    try {
+      const res = formatFn(val, row);
+      if (typeof res === 'object' && res !== null) {
+        return (res as any).full_name || (res as any).destination || JSON.stringify(res);
+      }
+      return String(res ?? '');
+    } catch {
+      // Fallback if formatter throws
+    }
+  }
+
+  if (typeof val === 'object' && val !== null) {
+    if (Array.isArray(val)) {
+      return val.map((item: any) => item?.student?.full_name || item?.full_name || String(item)).join('; ');
+    }
+    return val.full_name || val.destination || val.name || '';
+  }
+
+  return String(val);
 }
 
 /**
@@ -34,8 +62,8 @@ export function exportToCsv(
   const rows = data.map(row => {
     return columns.map(c => {
       const val = row[c.key];
-      const formatted = c.format ? c.format(val, row) : val;
-      return escapeCsvCell(formatted);
+      const str = safeCellString(val, row, c.format);
+      return escapeCsvCell(str);
     }).join(',');
   });
 
@@ -51,12 +79,16 @@ export function exportToCsv(
   if (summaryRows && summaryRows.length > 0) {
     content += '\r\n';
     summaryRows.forEach(sum => {
-      const sumLine = columns.map(c => escapeCsvCell(sum[c.key] ?? '')).join(',');
+      const sumLine = columns.map(c => {
+        const val = sum[c.key] ?? '';
+        const str = safeCellString(val, sum);
+        return escapeCsvCell(str);
+      }).join(',');
       content += `\r\n${sumLine}`;
     });
   }
 
-  // Prepend UTF-8 BOM
+  // Prepend UTF-8 BOM for Excel compatibility with all character sets
   const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -106,14 +138,18 @@ export function exportToExcel(
             <tr>
               ${columns.map(c => {
                 const val = row[c.key];
-                const formatted = c.format ? c.format(val, row) : (val ?? '');
-                return `<td>${formatted}</td>`;
+                const str = safeCellString(val, row, c.format);
+                return `<td>${str}</td>`;
               }).join('')}
             </tr>
           `).join('')}
           ${summaryRows ? summaryRows.map(sum => `
             <tr class="summary-row">
-              ${columns.map(c => `<td>${sum[c.key] ?? ''}</td>`).join('')}
+              ${columns.map(c => {
+                const val = sum[c.key] ?? '';
+                const str = safeCellString(val, sum);
+                return `<td>${str}</td>`;
+              }).join('')}
             </tr>
           `).join('') : ''}
         </tbody>
@@ -142,71 +178,84 @@ export function exportToPdf(
   data: any[],
   filterSubtitle?: string
 ): void {
-  const doc = new jsPDF({
-    orientation: columns.length > 7 ? 'landscape' : 'portrait',
-    unit: 'mm',
-    format: 'a4'
-  });
-
-  // Header Title
-  doc.setFontSize(16);
-  doc.setTextColor(15, 23, 42); // Navy
-  doc.text(`Edupark Field Portal — ${title}`, 14, 15);
-
-  // Subtitle / Filters
-  doc.setFontSize(9);
-  doc.setTextColor(100, 116, 139); // Slate
-  const dateStr = `Generated on: ${formatDisplayDate(getLocalDateString())} at ${new Date().toLocaleTimeString()} | Records: ${data.length}`;
-  doc.text(filterSubtitle ? `${filterSubtitle}  |  ${dateStr}` : dateStr, 14, 21);
-
-  // Table Data
-  const head = [columns.map(c => c.header)];
-  const body = data.map(row => {
-    return columns.map(c => {
-      const val = row[c.key];
-      return c.format ? c.format(val, row) : (val ?? 'N/A');
+  try {
+    const doc = new jsPDF({
+      orientation: columns.length > 6 ? 'landscape' : 'portrait',
+      unit: 'mm',
+      format: 'a4'
     });
-  });
 
-  autoTable(doc, {
-    head,
-    body,
-    startY: 25,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [15, 23, 42],
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      fontSize: 8,
-      cellPadding: 2.5
-    },
-    bodyStyles: {
-      fontSize: 8,
-      textColor: [15, 23, 42],
-      cellPadding: 2
-    },
-    alternateRowStyles: {
-      fillColor: [248, 250, 252]
-    },
-    styles: {
-      overflow: 'linebreak',
-      cellWidth: 'wrap'
-    },
-    margin: { top: 25, left: 14, right: 14, bottom: 15 },
-    didDrawPage: (dataInfo) => {
-      // Footer page number
-      const pageCount = (doc.internal as any).getNumberOfPages();
-      doc.setFontSize(8);
-      doc.setTextColor(148, 163, 184);
-      doc.text(
-        `Page ${dataInfo.pageNumber} of ${pageCount}`,
-        doc.internal.pageSize.width - 25,
-        doc.internal.pageSize.height - 8
-      );
+    // Header Title
+    doc.setFontSize(15);
+    doc.setTextColor(15, 23, 42); // Navy
+    doc.text(`Edupark Field Portal — ${title}`, 14, 15);
+
+    // Subtitle / Filters
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139); // Slate
+    const dateStr = `Generated on: ${formatDisplayDate(getLocalDateString())} at ${new Date().toLocaleTimeString()} | Total Records: ${data.length}`;
+    doc.text(filterSubtitle ? `${filterSubtitle}  |  ${dateStr}` : dateStr, 14, 21);
+
+    // Table Data
+    const head = [columns.map(c => c.header)];
+    const body = data.map(row => {
+      return columns.map(c => {
+        const val = row[c.key];
+        return safeCellString(val, row, c.format);
+      });
+    });
+
+    const tableConfig: any = {
+      head,
+      body,
+      startY: 25,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 8,
+        cellPadding: 2.5
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [15, 23, 42],
+        cellPadding: 2
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      styles: {
+        overflow: 'linebreak',
+        cellWidth: 'wrap'
+      },
+      margin: { top: 25, left: 14, right: 14, bottom: 15 },
+      didDrawPage: (dataInfo: any) => {
+        const pageCount = (doc.internal as any).getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          `Page ${dataInfo.pageNumber} of ${pageCount}`,
+          doc.internal.pageSize.width - 25,
+          doc.internal.pageSize.height - 8
+        );
+      }
+    };
+
+    if (typeof autoTable === 'function') {
+      autoTable(doc, tableConfig);
+    } else if (typeof (doc as any).autoTable === 'function') {
+      (doc as any).autoTable(tableConfig);
+    } else {
+      window.print();
+      return;
     }
-  });
 
-  doc.save(`${title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${getLocalDateString()}.pdf`);
+    doc.save(`${title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${getLocalDateString()}.pdf`);
+  } catch (err) {
+    console.error('PDF generation error, falling back to browser print', err);
+    window.print();
+  }
 }
 
 /**

@@ -97,12 +97,12 @@ export const SettleModal: React.FC<SettleModalProps> = ({
 
     if (netCollection < 0) {
       setWarningMsg('Warning: Net collection is negative (expenses exceed total collected money).');
-    } else if (parentDispatch?.target_amount && totalCollected > 0 && totalCollected < parentDispatch.target_amount) {
-      setWarningMsg(`Collection is lower than target of ${formatCurrency(parentDispatch.target_amount)}.`);
+    } else if (parentDispatch?.target_amount && numericExpenses > parentDispatch.target_amount) {
+      setWarningMsg(`Note: Incurred expenses (${formatCurrency(numericExpenses)}) exceed the campus allowance (${formatCurrency(parentDispatch.target_amount)}).`);
     } else {
       setWarningMsg(null);
     }
-  }, [numericReturned, calendarsIssued, netCollection, totalCollected, parentDispatch]);
+  }, [numericReturned, calendarsIssued, netCollection, numericExpenses, parentDispatch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,6 +190,12 @@ export const SettleModal: React.FC<SettleModalProps> = ({
             <span className="text-slate-400 block font-medium">Calendars Issued:</span>
             <span className="font-extrabold text-skyblue-700 text-sm">{calendarsIssued}</span>
           </div>
+          {parentDispatch.target_amount ? (
+            <div>
+              <span className="text-slate-400 block font-medium">Campus Allowance:</span>
+              <span className="font-extrabold text-emerald-700 text-sm">{formatCurrency(parentDispatch.target_amount)}</span>
+            </div>
+          ) : null}
         </div>
 
         {/* Error and Warning Banners */}

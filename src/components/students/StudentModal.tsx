@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { useApp } from '../../context/AppContext';
-import { StorageService } from '../../lib/storage';
+import { StorageService, STANDARD_BATCHES } from '../../lib/storage';
 import { Student } from '../../types/database';
 import { User, Layers, Phone, AlertCircle } from 'lucide-react';
 
@@ -18,13 +18,15 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 }) => {
   const { students, refreshData, showToast } = useApp();
   const [fullName, setFullName] = useState<string>('');
-  const [batch, setBatch] = useState<string>('');
+  const [batch, setBatch] = useState<string>(STANDARD_BATCHES[0]);
   const [phone, setPhone] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Suggested batches from existing database records
-  const existingBatches = Array.from(new Set(students.map(s => s.batch).filter(Boolean)));
+  // Available batches list prioritizing standard batches: plus one A, plus one B, Batch 13
+  const availableBatches = Array.from(
+    new Set([...STANDARD_BATCHES, ...students.map(s => s.batch).filter(Boolean)])
+  );
 
   useEffect(() => {
     if (studentToEdit) {
@@ -33,7 +35,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
       setPhone(studentToEdit.phone_number || '');
     } else {
       setFullName('');
-      setBatch(existingBatches[0] || 'Batch 2025-A');
+      setBatch(STANDARD_BATCHES[0]);
       setPhone('');
     }
     setErrorMsg(null);
@@ -56,7 +58,6 @@ export const StudentModal: React.FC<StudentModalProps> = ({
       return;
     }
 
-    // Check accidental duplicate
     const isDuplicate = students.some(
       s =>
         s.full_name.toLowerCase() === trimmedName.toLowerCase() &&
@@ -76,7 +77,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
         showToast(`Student "${trimmedName}" updated successfully.`, 'success');
       } else {
         await StorageService.addStudent(trimmedName, trimmedBatch, trimmedPhone || undefined);
-        showToast(`Student "${trimmedName}" registered successfully.`, 'success');
+        showToast(`Student "${trimmedName}" registered in ${trimmedBatch} successfully.`, 'success');
       }
       await refreshData();
       onClose();
@@ -92,7 +93,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={studentToEdit ? 'Edit Student Details' : 'Register New Student'}
-      subtitle="Ensure accurate batch information for field dispatch coordination"
+      subtitle="Select academic batch (plus one A, plus one B, Batch 13)"
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -117,16 +118,16 @@ export const StudentModal: React.FC<StudentModalProps> = ({
               required
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              placeholder="e.g. Aisha Rahman"
+              placeholder="e.g. Muhammed Bilal"
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-skyblue-500/20 focus:border-skyblue-500 transition-all"
             />
           </div>
         </div>
 
-        {/* Batch */}
+        {/* Batch Selection */}
         <div>
           <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-            Batch / Academic Cohort <span className="text-rose-500">*</span>
+            Academic Batch / Cohort <span className="text-rose-500">*</span>
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -135,19 +136,37 @@ export const StudentModal: React.FC<StudentModalProps> = ({
             <input
               type="text"
               required
-              list="batch-suggestions"
+              list="standard-batches-list"
               value={batch}
               onChange={(e) => setBatch(e.target.value)}
-              placeholder="e.g. Batch 2025-A"
+              placeholder="Select or enter batch..."
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-skyblue-500/20 focus:border-skyblue-500 transition-all"
             />
-            <datalist id="batch-suggestions">
-              {existingBatches.map(b => (
+            <datalist id="standard-batches-list">
+              {availableBatches.map(b => (
                 <option key={b} value={b} />
               ))}
             </datalist>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Select from existing batches or enter a new one.</p>
+
+          {/* Quick Click Badges for Standard Batches */}
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] text-slate-500 font-medium">Quick select:</span>
+            {STANDARD_BATCHES.map(b => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setBatch(b)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  batch === b
+                    ? 'bg-skyblue-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {b}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Phone Number */}

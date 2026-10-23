@@ -41,6 +41,10 @@ export const Header: React.FC<HeaderProps> = ({
       title: 'Reports & Exports',
       subtitle: 'Generate audit-ready registers, financial summaries, and inventory reports'
     },
+    settings: {
+      title: 'Settings & Security',
+      subtitle: 'Manage administrative credentials, username, and security password'
+    },
   };
 
   const currentInfo = tabTitles[currentTab] || { title: 'Edupark Portal', subtitle: '' };

@@ -23,211 +23,40 @@ import {
   getLocalDateString
 } from './calculations';
 
-// LocalStorage Keys
+// Standard Campus Batches requested by administration
+export const STANDARD_BATCHES = ['plus one A', 'plus one B', 'Batch 13'];
+
+// LocalStorage Keys - Clean V2 (Empty initial state)
 const KEYS = {
-  STUDENTS: 'edupark_students_v1',
-  DISPATCHES: 'edupark_dispatches_v1',
-  ASSIGNMENTS: 'edupark_assignments_v1',
-  SETTLEMENTS: 'edupark_settlements_v1',
-  EXCUSES: 'edupark_excuses_v1',
-  AUDIT_LOGS: 'edupark_audit_logs_v1',
+  STUDENTS: 'edupark_students_v2_clean',
+  DISPATCHES: 'edupark_dispatches_v2_clean',
+  ASSIGNMENTS: 'edupark_assignments_v2_clean',
+  SETTLEMENTS: 'edupark_settlements_v2_clean',
+  EXCUSES: 'edupark_excuses_v2_clean',
+  AUDIT_LOGS: 'edupark_audit_logs_v2_clean',
 };
 
-// Default Initial Seed Data for Local Mode
-const INITIAL_STUDENTS: Student[] = [
-  { id: 'std-001', full_name: 'Aisha Rahman', batch: 'Batch 2025-A', phone_number: '+91 98765 43210', is_active: true, created_at: '2026-10-18T09:00:00Z', updated_at: '2026-10-18T09:00:00Z' },
-  { id: 'std-002', full_name: 'Bilal Ahmed Khan', batch: 'Batch 2025-A', phone_number: '+91 98765 43211', is_active: true, created_at: '2026-10-18T09:00:00Z', updated_at: '2026-10-18T09:00:00Z' },
-  { id: 'std-003', full_name: 'Fathima Zahra', batch: 'Batch 2025-A', phone_number: '+91 98765 43212', is_active: true, created_at: '2026-10-18T09:00:00Z', updated_at: '2026-10-18T09:00:00Z' },
-  { id: 'std-004', full_name: 'Zayd Hassan', batch: 'Batch 2025-B', phone_number: '+91 98765 43213', is_active: true, created_at: '2026-10-19T09:00:00Z', updated_at: '2026-10-19T09:00:00Z' },
-  { id: 'std-005', full_name: 'Mariam Tariq', batch: 'Batch 2025-B', phone_number: '+91 98765 43214', is_active: true, created_at: '2026-10-19T09:00:00Z', updated_at: '2026-10-19T09:00:00Z' },
-  { id: 'std-006', full_name: 'Omar Farooq', batch: 'Batch 2025-B', phone_number: '+91 98765 43215', is_active: true, created_at: '2026-10-19T09:00:00Z', updated_at: '2026-10-19T09:00:00Z' },
-  { id: 'std-007', full_name: 'Yusuf Ali', batch: 'Batch 2026-A', phone_number: '+91 98765 43216', is_active: true, created_at: '2026-10-20T09:00:00Z', updated_at: '2026-10-20T09:00:00Z' },
-  { id: 'std-008', full_name: 'Hiba Nour', batch: 'Batch 2026-A', phone_number: '+91 98765 43217', is_active: true, created_at: '2026-10-20T09:00:00Z', updated_at: '2026-10-20T09:00:00Z' },
-  { id: 'std-009', full_name: 'Salman Qureshi', batch: 'Batch 2026-A', phone_number: '+91 98765 43218', is_active: true, created_at: '2026-10-20T09:00:00Z', updated_at: '2026-10-20T09:00:00Z' },
-  { id: 'std-010', full_name: 'Khadija Sayeed', batch: 'Batch 2026-B', phone_number: '+91 98765 43219', is_active: true, created_at: '2026-10-21T09:00:00Z', updated_at: '2026-10-21T09:00:00Z' },
-  { id: 'std-011', full_name: 'Hamza Idris', batch: 'Batch 2026-B', phone_number: '+91 98765 43220', is_active: true, created_at: '2026-10-21T09:00:00Z', updated_at: '2026-10-21T09:00:00Z' },
-  { id: 'std-012', full_name: 'Zainab Mustafa', batch: 'Batch 2026-B', phone_number: '+91 98765 43221', is_active: true, created_at: '2026-10-21T09:00:00Z', updated_at: '2026-10-21T09:00:00Z' }
-];
-
-const today = getLocalDateString();
-const yesterday = getLocalDateString(new Date(Date.now() - 86400000));
-const threeDaysAgo = getLocalDateString(new Date(Date.now() - 86400000 * 3));
-
-const INITIAL_DISPATCHES: Dispatch[] = [
-  {
-    id: 'disp-001',
-    destination: 'Green Valley Residency, Sector 4',
-    dispatch_date: threeDaysAgo,
-    target_amount: 5000,
-    dispatch_type: 'Individual',
-    status: 'Settled',
-    notes: 'Door-to-door residential visit in Phase 1',
-    created_by: 'admin',
-    created_at: `${threeDaysAgo}T09:30:00Z`,
-    updated_at: `${threeDaysAgo}T17:00:00Z`
-  },
-  {
-    id: 'disp-002',
-    destination: 'Metro Commercial Complex & Market',
-    dispatch_date: yesterday,
-    target_amount: 12000,
-    dispatch_type: 'Team',
-    status: 'Settlement Pending',
-    notes: 'Commercial shops and wholesale market drive',
-    created_by: 'admin',
-    created_at: `${yesterday}T09:15:00Z`,
-    updated_at: `${yesterday}T18:00:00Z`
-  },
-  {
-    id: 'disp-003',
-    destination: 'Sunrise Palm Meadows & Orchid Villas',
-    dispatch_date: today,
-    target_amount: 15000,
-    dispatch_type: 'Team',
-    status: 'Dispatched',
-    notes: 'Full day field visit to gated township',
-    created_by: 'admin',
-    created_at: `${today}T08:45:00Z`,
-    updated_at: `${today}T08:45:00Z`
+// Clean up old demo keys if present
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('edupark_students_v1');
+    localStorage.removeItem('edupark_dispatches_v1');
+    localStorage.removeItem('edupark_assignments_v1');
+    localStorage.removeItem('edupark_settlements_v1');
+    localStorage.removeItem('edupark_excuses_v1');
+    localStorage.removeItem('edupark_audit_logs_v1');
+  } catch {
+    // Ignore in non-browser environments
   }
-];
+}
 
-const INITIAL_ASSIGNMENTS: DispatchAssignment[] = [
-  {
-    id: 'asgn-001',
-    dispatch_id: 'disp-001',
-    student_id: 'std-001',
-    calendars_issued: 15,
-    assignment_status: 'Settled',
-    created_at: `${threeDaysAgo}T09:30:00Z`
-  },
-  {
-    id: 'asgn-002',
-    dispatch_id: 'disp-002',
-    student_id: 'std-002',
-    calendars_issued: 20,
-    assignment_status: 'Settled',
-    created_at: `${yesterday}T09:15:00Z`
-  },
-  {
-    id: 'asgn-003',
-    dispatch_id: 'disp-002',
-    student_id: 'std-003',
-    calendars_issued: 20,
-    assignment_status: 'Dispatched',
-    created_at: `${yesterday}T09:15:00Z`
-  },
-  {
-    id: 'asgn-004',
-    dispatch_id: 'disp-003',
-    student_id: 'std-004',
-    calendars_issued: 25,
-    assignment_status: 'Dispatched',
-    created_at: `${today}T08:45:00Z`
-  },
-  {
-    id: 'asgn-005',
-    dispatch_id: 'disp-003',
-    student_id: 'std-005',
-    calendars_issued: 25,
-    assignment_status: 'Dispatched',
-    created_at: `${today}T08:45:00Z`
-  },
-  {
-    id: 'asgn-006',
-    dispatch_id: 'disp-003',
-    student_id: 'std-006',
-    calendars_issued: 25,
-    assignment_status: 'Dispatched',
-    created_at: `${today}T08:45:00Z`
-  }
-];
-
-const INITIAL_SETTLEMENTS: Settlement[] = [
-  {
-    id: 'stl-001',
-    dispatch_assignment_id: 'asgn-001',
-    cash_amount: 3200,
-    gpay_amount: 2400,
-    calendars_returned: 15,
-    expenses: 150,
-    total_collected: 5600,
-    net_collection: 5450,
-    settlement_date: threeDaysAgo,
-    notes: 'All 15 calendars distributed or returned; auto fare deducted',
-    created_by: 'admin',
-    created_at: `${threeDaysAgo}T17:00:00Z`,
-    updated_at: `${threeDaysAgo}T17:00:00Z`
-  },
-  {
-    id: 'stl-002',
-    dispatch_assignment_id: 'asgn-002',
-    cash_amount: 4500,
-    gpay_amount: 3000,
-    calendars_returned: 18,
-    expenses: 200,
-    total_collected: 7500,
-    net_collection: 7300,
-    settlement_date: yesterday,
-    notes: '2 calendars provided to merchant sponsors; verified by coordinator',
-    created_by: 'admin',
-    created_at: `${yesterday}T18:00:00Z`,
-    updated_at: `${yesterday}T18:00:00Z`
-  }
-];
-
-const INITIAL_EXCUSES: Excuse[] = [
-  {
-    id: 'exc-001',
-    student_id: 'std-007',
-    excuse_date: today,
-    reason: 'University Semester Examination',
-    notes: 'Official leave application signed by academic dean',
-    created_by: 'admin',
-    created_at: `${today}T08:00:00Z`,
-    updated_at: `${today}T08:00:00Z`
-  },
-  {
-    id: 'exc-002',
-    student_id: 'std-008',
-    excuse_date: today,
-    reason: 'Medical Leave - High Fever',
-    notes: 'Prescription slip submitted to administrative desk',
-    created_by: 'admin',
-    created_at: `${today}T08:15:00Z`,
-    updated_at: `${today}T08:15:00Z`
-  }
-];
-
-const INITIAL_AUDIT_LOGS: AuditLog[] = [
-  {
-    id: 'aud-001',
-    admin_id: 'admin',
-    action: 'CREATE_DISPATCH',
-    entity_type: 'dispatch',
-    entity_id: 'disp-001',
-    details: { destination: 'Green Valley Residency, Sector 4', type: 'Individual', students: 1 },
-    created_at: `${threeDaysAgo}T09:30:00Z`
-  },
-  {
-    id: 'aud-002',
-    admin_id: 'admin',
-    action: 'SETTLE_ASSIGNMENT',
-    entity_type: 'settlement',
-    entity_id: 'stl-001',
-    details: { cash: 3200, gpay: 2400, total: 5600, net: 5450, student: 'Aisha Rahman' },
-    created_at: `${threeDaysAgo}T17:00:00Z`
-  },
-  {
-    id: 'aud-003',
-    admin_id: 'admin',
-    action: 'CREATE_DISPATCH',
-    entity_type: 'dispatch',
-    entity_id: 'disp-003',
-    details: { destination: 'Sunrise Palm Meadows & Orchid Villas', type: 'Team', students: 3 },
-    created_at: `${today}T08:45:00Z`
-  }
-];
+// Default Clean Empty Seed State (Zero Demo Data)
+const INITIAL_STUDENTS: Student[] = [];
+const INITIAL_DISPATCHES: Dispatch[] = [];
+const INITIAL_ASSIGNMENTS: DispatchAssignment[] = [];
+const INITIAL_SETTLEMENTS: Settlement[] = [];
+const INITIAL_EXCUSES: Excuse[] = [];
+const INITIAL_AUDIT_LOGS: AuditLog[] = [];
 
 // Helper to load or initialize from localStorage
 function getLocalItem<T>(key: string, defaultValue: T): T {
@@ -252,23 +81,31 @@ function setLocalItem<T>(key: string, value: T): void {
   }
 }
 
+export function isTableMissingError(error: any): boolean {
+  return Boolean(error && (error.code === 'PGRST205' || error.message?.includes('schema cache')));
+}
+
 /**
  * Repository Engine with transparent Supabase or LocalStorage switching
  */
 export const StorageService = {
-  // Check whether we are using live Supabase or Local Mode
   isLiveSupabase(): boolean {
     return isSupabaseConfigured();
   },
 
-  // Reset local database to default seed state
+  // Completely wipe all local data to start fresh
+  clearAllData(): void {
+    setLocalItem(KEYS.STUDENTS, []);
+    setLocalItem(KEYS.DISPATCHES, []);
+    setLocalItem(KEYS.ASSIGNMENTS, []);
+    setLocalItem(KEYS.SETTLEMENTS, []);
+    setLocalItem(KEYS.EXCUSES, []);
+    setLocalItem(KEYS.AUDIT_LOGS, []);
+  },
+
+  // Alias for backward compatibility
   resetToSeed(): void {
-    setLocalItem(KEYS.STUDENTS, INITIAL_STUDENTS);
-    setLocalItem(KEYS.DISPATCHES, INITIAL_DISPATCHES);
-    setLocalItem(KEYS.ASSIGNMENTS, INITIAL_ASSIGNMENTS);
-    setLocalItem(KEYS.SETTLEMENTS, INITIAL_SETTLEMENTS);
-    setLocalItem(KEYS.EXCUSES, INITIAL_EXCUSES);
-    setLocalItem(KEYS.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
+    this.clearAllData();
   },
 
   // --------------------------------------------------------------------------
@@ -276,12 +113,23 @@ export const StorageService = {
   // --------------------------------------------------------------------------
   async getStudents(): Promise<Student[]> {
     if (this.isLiveSupabase() && supabase) {
-      const { data, error } = await supabase
-        .from('students')
-        .select('*')
-        .order('full_name', { ascending: true });
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .order('full_name', { ascending: true });
+        if (error) {
+          if (isTableMissingError(error)) {
+            console.warn('[Edupark] Supabase table "students" not found. Falling back to local store.');
+            return getLocalItem<Student[]>(KEYS.STUDENTS, INITIAL_STUDENTS);
+          }
+          throw error;
+        }
+        return data || [];
+      } catch (err: any) {
+        if (isTableMissingError(err)) return getLocalItem<Student[]>(KEYS.STUDENTS, INITIAL_STUDENTS);
+        throw err;
+      }
     }
     return getLocalItem<Student[]>(KEYS.STUDENTS, INITIAL_STUDENTS);
   },
@@ -313,7 +161,12 @@ export const StorageService = {
         }])
         .select()
         .single();
-      if (error) throw error;
+      if (error) {
+        if (isTableMissingError(error)) {
+          throw new Error('Supabase tables have not been created yet. Please execute the SQL from supabase/schema.sql in your Supabase SQL Editor.');
+        }
+        throw error;
+      }
       await this.logAudit('CREATE_STUDENT', 'students', data.id, { name: trimmedName, batch: trimmedBatch });
       return data;
     }
@@ -408,23 +261,39 @@ export const StorageService = {
   // --------------------------------------------------------------------------
   async getDispatches(): Promise<Dispatch[]> {
     if (this.isLiveSupabase() && supabase) {
-      const { data, error } = await supabase
-        .from('dispatches')
-        .select('*')
-        .order('dispatch_date', { ascending: false });
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from('dispatches')
+          .select('*')
+          .order('dispatch_date', { ascending: false });
+        if (error) {
+          if (isTableMissingError(error)) return getLocalItem<Dispatch[]>(KEYS.DISPATCHES, INITIAL_DISPATCHES);
+          throw error;
+        }
+        return data || [];
+      } catch (err: any) {
+        if (isTableMissingError(err)) return getLocalItem<Dispatch[]>(KEYS.DISPATCHES, INITIAL_DISPATCHES);
+        throw err;
+      }
     }
     return getLocalItem<Dispatch[]>(KEYS.DISPATCHES, INITIAL_DISPATCHES);
   },
 
   async getAssignments(): Promise<DispatchAssignment[]> {
     if (this.isLiveSupabase() && supabase) {
-      const { data, error } = await supabase
-        .from('dispatch_assignments')
-        .select('*');
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from('dispatch_assignments')
+          .select('*');
+        if (error) {
+          if (isTableMissingError(error)) return getLocalItem<DispatchAssignment[]>(KEYS.ASSIGNMENTS, INITIAL_ASSIGNMENTS);
+          throw error;
+        }
+        return data || [];
+      } catch (err: any) {
+        if (isTableMissingError(err)) return getLocalItem<DispatchAssignment[]>(KEYS.ASSIGNMENTS, INITIAL_ASSIGNMENTS);
+        throw err;
+      }
     }
     return getLocalItem<DispatchAssignment[]>(KEYS.ASSIGNMENTS, INITIAL_ASSIGNMENTS);
   },
@@ -432,7 +301,7 @@ export const StorageService = {
   async createDispatch(
     destination: string,
     dispatchDate: string,
-    targetAmount: number | null,
+    travelAdvance: number | null, // Campus Allowance for Travel & Food
     studentAllocations: { studentId: string; calendarsIssued: number }[],
     notes?: string,
     excusesToRecord?: { studentId: string; reason: string }[]
@@ -494,11 +363,14 @@ export const StorageService = {
     const dispatchId = `disp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const nowIso = new Date().toISOString();
 
+    const advanceValue = travelAdvance !== null && travelAdvance !== undefined ? Number(travelAdvance) : null;
+
     const newDispatch: Dispatch = {
       id: dispatchId,
       destination: trimmedDest,
       dispatch_date: dispatchDate,
-      target_amount: targetAmount !== null && targetAmount !== undefined ? Number(targetAmount) : null,
+      target_amount: advanceValue, // Campus Allowance for Travel & Food
+      advance_amount: advanceValue,
       dispatch_type: dispatchType,
       status: 'Dispatched',
       notes: notes?.trim() || null,
@@ -517,7 +389,6 @@ export const StorageService = {
     }));
 
     if (this.isLiveSupabase() && supabase) {
-      // Create dispatch in Supabase
       const { data: createdDispatch, error: dispError } = await supabase
         .from('dispatches')
         .insert([{
@@ -532,7 +403,6 @@ export const StorageService = {
         .single();
       if (dispError) throw dispError;
 
-      // Create assignments
       const assignmentsPayload = studentAllocations.map(alloc => ({
         dispatch_id: createdDispatch.id,
         student_id: alloc.studentId,
@@ -545,7 +415,6 @@ export const StorageService = {
         .insert(assignmentsPayload);
       if (asgnError) throw asgnError;
 
-      // Handle optional excuses in the form
       if (excusesToRecord && excusesToRecord.length > 0) {
         for (const exc of excusesToRecord) {
           if (exc.studentId && exc.reason) {
@@ -558,6 +427,7 @@ export const StorageService = {
         destination: trimmedDest,
         type: dispatchType,
         studentCount: studentAllocations.length,
+        travelAdvance: advanceValue,
         totalCalendars: studentAllocations.reduce((sum, a) => sum + a.calendarsIssued, 0)
       });
 
@@ -574,7 +444,6 @@ export const StorageService = {
     setLocalItem(KEYS.DISPATCHES, dispatchesList);
     setLocalItem(KEYS.ASSIGNMENTS, assignmentsList);
 
-    // Record any excuses included
     if (excusesToRecord && excusesToRecord.length > 0) {
       for (const exc of excusesToRecord) {
         if (exc.studentId && exc.reason) {
@@ -587,6 +456,7 @@ export const StorageService = {
       destination: trimmedDest,
       type: dispatchType,
       studentCount: studentAllocations.length,
+      travelAdvance: advanceValue,
       totalCalendars: studentAllocations.reduce((sum, a) => sum + a.calendarsIssued, 0)
     });
 
@@ -598,12 +468,20 @@ export const StorageService = {
   // --------------------------------------------------------------------------
   async getSettlements(): Promise<Settlement[]> {
     if (this.isLiveSupabase() && supabase) {
-      const { data, error } = await supabase
-        .from('settlements')
-        .select('*')
-        .order('settlement_date', { ascending: false });
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from('settlements')
+          .select('*')
+          .order('settlement_date', { ascending: false });
+        if (error) {
+          if (isTableMissingError(error)) return getLocalItem<Settlement[]>(KEYS.SETTLEMENTS, INITIAL_SETTLEMENTS);
+          throw error;
+        }
+        return data || [];
+      } catch (err: any) {
+        if (isTableMissingError(err)) return getLocalItem<Settlement[]>(KEYS.SETTLEMENTS, INITIAL_SETTLEMENTS);
+        throw err;
+      }
     }
     return getLocalItem<Settlement[]>(KEYS.SETTLEMENTS, INITIAL_SETTLEMENTS);
   },
@@ -617,7 +495,6 @@ export const StorageService = {
     settlementDate: string,
     notes?: string
   ): Promise<Settlement> {
-    // Basic validation
     const cash = Math.max(0, isNaN(cashAmount) ? 0 : cashAmount);
     const gpay = Math.max(0, isNaN(gpayAmount) ? 0 : gpayAmount);
     const exp = Math.max(0, isNaN(expenses) ? 0 : expenses);
@@ -627,7 +504,6 @@ export const StorageService = {
       throw new Error('Calendars returned must be a non-negative integer');
     }
 
-    // Verify assignment exists and is not already settled
     const assignments = await this.getAssignments();
     const assignment = assignments.find(a => a.id === assignmentId);
     if (!assignment) throw new Error('Dispatch assignment not found');
@@ -636,7 +512,6 @@ export const StorageService = {
       throw new Error('This student assignment has already been settled');
     }
 
-    // Check calendars returned cannot exceed issued
     if (returned > assignment.calendars_issued) {
       throw new Error(
         `Returned calendars (${returned}) cannot exceed issued quantity (${assignment.calendars_issued}) for this student.`
@@ -696,13 +571,11 @@ export const StorageService = {
     settlements.unshift(newSettlement);
     setLocalItem(KEYS.SETTLEMENTS, settlements);
 
-    // Update assignment status to Settled
     const asgnIndex = assignments.findIndex(a => a.id === assignmentId);
     if (asgnIndex !== -1) {
       assignments[asgnIndex].assignment_status = 'Settled';
       setLocalItem(KEYS.ASSIGNMENTS, assignments);
 
-      // Re-evaluate parent dispatch status
       const dispatchId = assignments[asgnIndex].dispatch_id;
       const allDispatchAssignments = assignments.filter(a => a.dispatch_id === dispatchId);
       const allSettled = allDispatchAssignments.every(a => a.assignment_status === 'Settled');
@@ -738,12 +611,20 @@ export const StorageService = {
   // --------------------------------------------------------------------------
   async getExcuses(): Promise<Excuse[]> {
     if (this.isLiveSupabase() && supabase) {
-      const { data, error } = await supabase
-        .from('excuses')
-        .select('*')
-        .order('excuse_date', { ascending: false });
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from('excuses')
+          .select('*')
+          .order('excuse_date', { ascending: false });
+        if (error) {
+          if (isTableMissingError(error)) return getLocalItem<Excuse[]>(KEYS.EXCUSES, INITIAL_EXCUSES);
+          throw error;
+        }
+        return data || [];
+      } catch (err: any) {
+        if (isTableMissingError(err)) return getLocalItem<Excuse[]>(KEYS.EXCUSES, INITIAL_EXCUSES);
+        throw err;
+      }
     }
     return getLocalItem<Excuse[]>(KEYS.EXCUSES, INITIAL_EXCUSES);
   },
@@ -754,7 +635,6 @@ export const StorageService = {
     if (!excuseDate) throw new Error('Excuse date is required');
     if (!trimmedReason) throw new Error('Excuse reason is required');
 
-    // Conflict Check: Check if student has an active dispatch on this date
     const assignments = await this.getAssignments();
     const dispatches = await this.getDispatches();
     const activeDispatchOnDate = assignments.find(a => {
@@ -767,7 +647,6 @@ export const StorageService = {
       throw new Error('Conflict: Cannot excuse a student who already has an active dispatch on this date.');
     }
 
-    // Check duplicate excuse
     const excuses = await this.getExcuses();
     const existingExcuse = excuses.find(e => e.student_id === studentId && e.excuse_date === excuseDate);
     if (existingExcuse) {
@@ -827,13 +706,21 @@ export const StorageService = {
   // --------------------------------------------------------------------------
   async getAuditLogs(): Promise<AuditLog[]> {
     if (this.isLiveSupabase() && supabase) {
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from('audit_logs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (error) {
+          if (isTableMissingError(error)) return getLocalItem<AuditLog[]>(KEYS.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
+          throw error;
+        }
+        return data || [];
+      } catch (err: any) {
+        if (isTableMissingError(err)) return getLocalItem<AuditLog[]>(KEYS.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
+        throw err;
+      }
     }
     return getLocalItem<AuditLog[]>(KEYS.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
   },
@@ -916,6 +803,7 @@ export const StorageService = {
         total_calendars_returned: totalReturned,
         total_collected: totalCollected,
         net_collection: netCollection,
+        total_advance: dispatch.target_amount || 0,
       };
     });
   },
@@ -994,10 +882,6 @@ export const StorageService = {
     }));
   },
 
-  /**
-   * Derive dynamic student status:
-   * Available | Dispatched | Settlement Pending | Excused | Inactive
-   */
   async getStudentsWithComputedStatus(selectedDate?: string): Promise<Student[]> {
     const dateToCheck = selectedDate || getLocalDateString();
     const [students, assignments, dispatches, excuses] = await Promise.all([
@@ -1011,6 +895,7 @@ export const StorageService = {
 
     return students.map(student => {
       let status: StudentStatus = 'Available';
+      let excuseReason: string | undefined = undefined;
 
       if (!student.is_active) {
         status = 'Inactive';
@@ -1018,18 +903,17 @@ export const StorageService = {
       }
 
       // Check if excused on target date
-      const isExcused = excuses.some(
+      const activeExcuse = excuses.find(
         e => e.student_id === student.id && e.excuse_date === dateToCheck
       );
-      if (isExcused) {
+      if (activeExcuse) {
         status = 'Excused';
-        return { ...student, current_status: status };
+        excuseReason = activeExcuse.reason;
+        return { ...student, current_status: status, excuse_reason: excuseReason };
       }
 
-      // Find student assignments
       const studentAssignments = assignments.filter(a => a.student_id === student.id);
 
-      // Check if student is actively dispatched on selected date
       const onDateDispatch = studentAssignments.find(a => {
         const d = dispatchMap.get(a.dispatch_id);
         return d && d.dispatch_date === dateToCheck && d.status !== 'Cancelled';
@@ -1038,7 +922,6 @@ export const StorageService = {
       if (onDateDispatch) {
         status = onDateDispatch.assignment_status === 'Settled' ? 'Available' : 'Dispatched';
       } else {
-        // Check if student has pending settlement from earlier
         const hasPendingSettlement = studentAssignments.some(a => {
           const d = dispatchMap.get(a.dispatch_id);
           return d && d.status !== 'Cancelled' && a.assignment_status === 'Dispatched';
@@ -1056,9 +939,6 @@ export const StorageService = {
     });
   },
 
-  /**
-   * Calculate aggregated dashboard metrics with date filtering
-   */
   async getDashboardMetrics(
     dateFilter: DateFilterType = 'all',
     customStart?: string,
@@ -1075,26 +955,21 @@ export const StorageService = {
     const activeStudents = students.filter(s => s.is_active);
     const totalActiveStudents = activeStudents.length;
 
-    // Filter dispatches by date
     const filteredDispatches = dispatches.filter(d =>
       matchesDateFilter(d.dispatch_date, dateFilter, customStart, customEnd)
     );
     const filteredDispatchIds = new Set(filteredDispatches.map(d => d.id));
 
-    // Filter assignments that belong to the filtered dispatches
     const relevantAssignments = assignments.filter(a => filteredDispatchIds.has(a.dispatch_id));
 
-    // Filter settlements by settlement_date
     const filteredSettlements = settlements.filter(s =>
       matchesDateFilter(s.settlement_date, dateFilter, customStart, customEnd)
     );
 
-    // Filter excuses by excuse_date
     const filteredExcuses = excuses.filter(e =>
       matchesDateFilter(e.excuse_date, dateFilter, customStart, customEnd)
     );
 
-    // 1. Unique students currently assigned to active unsettled field dispatches
     const dispatchedStudentIds = new Set<string>();
     relevantAssignments.forEach(a => {
       if (a.assignment_status === 'Dispatched') {
@@ -1105,29 +980,24 @@ export const StorageService = {
       }
     });
 
-    // 2. Financial totals from confirmed settlements
     const totalCash = filteredSettlements.reduce((sum, s) => sum + s.cash_amount, 0);
     const totalGPay = filteredSettlements.reduce((sum, s) => sum + s.gpay_amount, 0);
     const totalExpenses = filteredSettlements.reduce((sum, s) => sum + s.expenses, 0);
     const totalCollected = calculateTotalCollected(totalCash, totalGPay);
     const netCollection = calculateNetCollection(totalCollected, totalExpenses);
 
-    // Target amount of pending dispatches
-    const pendingTarget = filteredDispatches
-      .filter(d => d.status === 'Dispatched' || d.status === 'Settlement Pending')
+    // Total Allowance given by the campus for dispatches in this period
+    const totalAdvancesGiven = filteredDispatches
       .reduce((sum, d) => sum + (d.target_amount || 0), 0);
 
-    // 3. Unique excused students
     const uniqueExcusedStudentIds = new Set(filteredExcuses.map(e => e.student_id));
 
-    // 4. Physical Calendars
     const calendarsIssued = relevantAssignments.reduce((sum, a) => sum + (a.calendars_issued || 0), 0);
     const relevantAssignmentIds = new Set(relevantAssignments.map(a => a.id));
     const settlementsForRelevant = settlements.filter(s => relevantAssignmentIds.has(s.dispatch_assignment_id));
     const calendarsReturned = settlementsForRelevant.reduce((sum, s) => sum + (s.calendars_returned || 0), 0);
     const calendarsOutstanding = calculateOutstandingCalendars(calendarsIssued, calendarsReturned);
 
-    // Counts
     const activeDispatchesCount = filteredDispatches.filter(
       d => d.status === 'Dispatched' || d.status === 'Settlement Pending'
     ).length;
@@ -1137,7 +1007,7 @@ export const StorageService = {
     return {
       dispatchedStudentsCount: dispatchedStudentIds.size,
       totalAmountCollected: totalCollected,
-      pendingAmountTarget: pendingTarget,
+      totalAdvancesGiven: totalAdvancesGiven,
       excusedStudentsCount: uniqueExcusedStudentIds.size,
       totalActiveStudents,
       totalActiveDispatches: activeDispatchesCount,
@@ -1151,9 +1021,6 @@ export const StorageService = {
     };
   },
 
-  /**
-   * Filtered Financial and Calendar Summary
-   */
   async getFilteredFinancialSummary(
     dateFilter: DateFilterType = 'all',
     customStart?: string,
@@ -1176,6 +1043,8 @@ export const StorageService = {
     const totalCollected = calculateTotalCollected(totalCash, totalGPay);
     const netCollection = calculateNetCollection(totalCollected, totalExpenses);
 
+    const totalAdvances = filtered.reduce((sum, s) => sum + (s.dispatch.target_amount || 0), 0);
+
     const calendarsIssued = filtered.reduce((sum, s) => sum + (s.assignment.calendars_issued || 0), 0);
     const calendarsReturned = filtered.reduce((sum, s) => sum + (s.calendars_returned || 0), 0);
     const outstandingCalendars = calculateOutstandingCalendars(calendarsIssued, calendarsReturned);
@@ -1186,6 +1055,7 @@ export const StorageService = {
       totalCollected,
       totalExpenses,
       netCollection,
+      totalAdvances,
       calendarsIssued,
       calendarsReturned,
       outstandingCalendars,

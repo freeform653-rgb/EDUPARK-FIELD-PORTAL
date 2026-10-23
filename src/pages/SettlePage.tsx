@@ -493,6 +493,14 @@ export const SettlePage: React.FC = () => {
                       <span className="font-semibold text-skyblue-700">
                         {assignment.calendars_issued} Calendars Issued
                       </span>
+                      {dispatch.target_amount ? (
+                        <>
+                          <span>•</span>
+                          <span className="font-semibold text-emerald-700">
+                            Allowance: {formatCurrency(dispatch.target_amount)}
+                          </span>
+                        </>
+                      ) : null}
                     </div>
                   </div>
 

@@ -79,4 +79,41 @@ assert(validateCalendarReturn(20, 15).valid === true, '15 returned out of 20 iss
 assert(validateCalendarReturn(20, 20).valid === true, '20 returned out of 20 issued is valid');
 assert(validateCalendarReturn(20, 25).valid === false, '25 returned out of 20 issued is REJECTED');
 
+// Test 10: Admin Credential & Security Password Update Rules
+function validateCredentialUpdate(
+  currentCreds: { username: string; password: string },
+  params: { newUsername: string; currentPassword?: string; newPassword?: string; confirmPassword?: string }
+): { valid: boolean; error?: string } {
+  const trimmed = params.newUsername.trim();
+  if (!trimmed) return { valid: false, error: 'Username cannot be blank.' };
+  if (trimmed.length < 3) return { valid: false, error: 'Username must be at least 3 characters long.' };
+
+  if (params.newPassword) {
+    if (!params.currentPassword) {
+      return { valid: false, error: 'Current password is required to change password.' };
+    }
+    if (params.currentPassword !== currentCreds.password) {
+      return { valid: false, error: 'Current password does not match.' };
+    }
+    if (params.newPassword.length < 6) {
+      return { valid: false, error: 'New password must be at least 6 characters long.' };
+    }
+    if (params.confirmPassword !== undefined && params.newPassword !== params.confirmPassword) {
+      return { valid: false, error: 'New passwords do not match.' };
+    }
+  }
+
+  return { valid: true };
+}
+
+const testCreds = { username: 'admin', password: 'edupark@admin2025' };
+assert(validateCredentialUpdate(testCreds, { newUsername: 'director' }).valid === true, 'Valid username update accepted');
+assert(validateCredentialUpdate(testCreds, { newUsername: '   ' }).valid === false, 'Blank username rejected');
+assert(validateCredentialUpdate(testCreds, { newUsername: 'ed' }).valid === false, 'Short username under 3 chars rejected');
+assert(validateCredentialUpdate(testCreds, { newUsername: 'admin', newPassword: 'newSecretPass123' }).valid === false, 'Changing password without current password rejected');
+assert(validateCredentialUpdate(testCreds, { newUsername: 'admin', currentPassword: 'wrongPassword', newPassword: 'newSecretPass123' }).valid === false, 'Wrong current password rejected');
+assert(validateCredentialUpdate(testCreds, { newUsername: 'admin', currentPassword: 'edupark@admin2025', newPassword: '123' }).valid === false, 'Short new password under 6 chars rejected');
+assert(validateCredentialUpdate(testCreds, { newUsername: 'admin', currentPassword: 'edupark@admin2025', newPassword: 'newPassword123', confirmPassword: 'differentPassword' }).valid === false, 'Mismatched confirm password rejected');
+assert(validateCredentialUpdate(testCreds, { newUsername: 'admin_campus', currentPassword: 'edupark@admin2025', newPassword: 'newPassword123', confirmPassword: 'newPassword123' }).valid === true, 'Valid password change with matching confirm password accepted');
+
 console.log('--- ALL AUTOMATED BUSINESS RULES & CALCULATION TESTS PASSED! ---');

@@ -19,7 +19,8 @@ import {
   FileText,
   CreditCard,
   CheckCircle2,
-  MapPin
+  MapPin,
+  User
 } from 'lucide-react';
 
 export const DispatchesPage: React.FC = () => {
@@ -79,7 +80,7 @@ export const DispatchesPage: React.FC = () => {
       key: 'assignments',
       format: (a: PopulatedAssignment[]) => a.map(asgn => asgn.student.full_name).join('; ')
     },
-    { header: 'Target (₹)', key: 'target_amount', format: (v: number) => formatCurrency(v) },
+    { header: 'Allowance (₹)', key: 'target_amount', format: (v: number) => formatCurrency(v) },
     { header: 'Calendars Issued', key: 'total_calendars_issued' },
     { header: 'Calendars Returned', key: 'total_calendars_returned' },
     { header: 'Total Collected (₹)', key: 'total_collected', format: (v: number) => formatCurrency(v) },
@@ -236,7 +237,9 @@ export const DispatchesPage: React.FC = () => {
                 <div className="p-4 sm:p-5">
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     {/* Destination & Meta */}
-                    <div className="space-y-1.5 min-w-0">
+                    {/* Student Name Highlighted & Place To The Side */}
+                    <div className="space-y-2 min-w-0">
+                      {/* Top Badges */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <DispatchTypeBadge type={dispatch.dispatch_type} />
                         <DispatchStatusBadge
@@ -246,14 +249,46 @@ export const DispatchesPage: React.FC = () => {
                         <span className="text-xs text-slate-400 font-mono">#{dispatch.id}</span>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-skyblue-600 shrink-0" />
-                        <h3 className="text-base font-bold text-slate-900 truncate">
-                          {dispatch.destination}
-                        </h3>
+                      {/* Main Headline: Highlighted Student Name(s) + Place on the side */}
+                      <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
+                        {isTeam ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {dispatch.assignments.map((asgn) => (
+                              <span
+                                key={asgn.id}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-50 text-slate-900 border-2 border-amber-300 shadow-xs text-xs sm:text-sm font-extrabold"
+                              >
+                                <User className="w-3.5 h-3.5 text-amber-700" />
+                                <span>{asgn.student.full_name}</span>
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white text-amber-900 border border-amber-200">
+                                  {asgn.student.batch}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          dispatch.assignments[0] && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 text-slate-900 border-2 border-amber-300 shadow-xs text-sm sm:text-base font-black">
+                                <User className="w-4 h-4 text-amber-700" />
+                                <span>{dispatch.assignments[0].student.full_name}</span>
+                              </span>
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                                {dispatch.assignments[0].student.batch}
+                              </span>
+                            </div>
+                          )
+                        )}
+
+                        {/* Place placed to the side */}
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 shadow-2xs">
+                          <MapPin className="w-3.5 h-3.5 text-skyblue-600 shrink-0" />
+                          <span>{dispatch.destination}</span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                      {/* Meta Information row */}
+                      <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap pt-0.5">
                         <span className="flex items-center gap-1 font-medium">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           {formatDisplayDate(dispatch.dispatch_date)}
@@ -265,8 +300,8 @@ export const DispatchesPage: React.FC = () => {
                         {dispatch.target_amount && (
                           <>
                             <span>•</span>
-                            <span className="text-slate-600">
-                              Target: <strong>{formatCurrency(dispatch.target_amount)}</strong>
+                            <span className="text-slate-700 font-medium">
+                              Allowance: <strong className="text-slate-900 font-extrabold">{formatCurrency(dispatch.target_amount)}</strong>
                             </span>
                           </>
                         )}
@@ -349,10 +384,10 @@ export const DispatchesPage: React.FC = () => {
                           >
                             <div className="flex items-start justify-between">
                               <div className="min-w-0">
-                                <p className="font-bold text-slate-900 text-xs truncate">
+                                <p className="font-extrabold text-slate-900 text-xs truncate bg-amber-50/90 px-2 py-0.5 rounded border border-amber-200 inline-block">
                                   {asgn.student.full_name}
                                 </p>
-                                <p className="text-[11px] text-slate-500">{asgn.student.batch}</p>
+                                <p className="text-[11px] text-slate-500 mt-0.5">{asgn.student.batch}</p>
                               </div>
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${

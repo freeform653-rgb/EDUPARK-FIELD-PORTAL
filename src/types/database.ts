@@ -5,13 +5,13 @@ export type StudentStatus = 'Available' | 'Dispatched' | 'Settlement Pending' | 
 export interface Student {
   id: string;
   full_name: string;
-  batch: string;
+  batch: string; // plus one A | plus one B | Batch 13 | custom
   phone_number: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  // Computed virtual property
   current_status?: StudentStatus;
+  excuse_reason?: string;
 }
 
 export type DispatchType = 'Individual' | 'Team';
@@ -21,7 +21,8 @@ export interface Dispatch {
   id: string;
   destination: string;
   dispatch_date: string;
-  target_amount: number | null;
+  target_amount: number | null; // Preserved for DB schema compatibility: Campus Allowance for Travel & Food
+  advance_amount?: number | null; // Campus Allowance provided for Travel & Food
   dispatch_type: DispatchType;
   status: DispatchStatus;
   notes: string | null;
@@ -47,9 +48,9 @@ export interface Settlement {
   cash_amount: number;
   gpay_amount: number;
   calendars_returned: number;
-  expenses: number;
-  total_collected: number;
-  net_collection: number;
+  expenses: number; // Actual Travel & Food expenses incurred
+  total_collected: number; // Cash + GPay
+  net_collection: number; // Total Collected - Expenses
   settlement_date: string;
   notes: string | null;
   created_by: string;
@@ -92,6 +93,7 @@ export interface PopulatedDispatch extends Dispatch {
   total_calendars_returned: number;
   total_collected: number;
   net_collection: number;
+  total_advance: number; // Campus Allowance for Travel & Food
 }
 
 export interface PopulatedSettlement extends Settlement {
@@ -111,6 +113,7 @@ export interface FinancialSummary {
   totalCollected: number;
   totalExpenses: number;
   netCollection: number;
+  totalAdvances: number;
   calendarsIssued: number;
   calendarsReturned: number;
   outstandingCalendars: number;
@@ -120,7 +123,7 @@ export interface FinancialSummary {
 export interface DashboardMetrics {
   dispatchedStudentsCount: number;
   totalAmountCollected: number;
-  pendingAmountTarget: number;
+  totalAdvancesGiven: number; // Campus Allowance for Travel & Food
   excusedStudentsCount: number;
   totalActiveStudents: number;
   totalActiveDispatches: number;

@@ -141,7 +141,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
         <StatCard
           label="Total Amount Collected"
           value={formatCurrency(metrics?.totalAmountCollected || 0)}
-          subtext={`Settled collections (Target expected: ${formatCurrency(metrics?.pendingAmountTarget || 0)})`}
+          subtext={`Settled collections (Allowance issued: ${formatCurrency(metrics?.totalAdvancesGiven || 0)})`}
           icon={DollarSign}
           variant="emerald"
           tooltip="Gross money confirmed through completed settlements"

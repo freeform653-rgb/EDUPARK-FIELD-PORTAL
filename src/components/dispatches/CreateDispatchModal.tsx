@@ -272,11 +272,11 @@ export const CreateDispatchModal: React.FC<CreateDispatchModalProps> = ({
           </div>
         </div>
 
-        {/* Target Amount & Default Calendars */}
+        {/* Allowance & Default Calendars */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Target Donation Amount (₹) <span className="text-slate-400 font-normal">(Optional)</span>
+              Allowance (₹) <span className="text-slate-400 font-normal">(Campus Cash for Travel & Food)</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -288,10 +288,11 @@ export const CreateDispatchModal: React.FC<CreateDispatchModalProps> = ({
                 step="50"
                 value={targetAmount}
                 onChange={(e) => setTargetAmount(e.target.value)}
-                placeholder="e.g. 5000"
+                placeholder="e.g. 500 (Campus allowance for travel & food)"
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-skyblue-500/20 focus:border-skyblue-500"
               />
             </div>
+            <p className="text-[11px] text-slate-400 mt-1">Cash allowance given by campus for student travel, auto/bus fare, and food.</p>
           </div>
 
           <div>
