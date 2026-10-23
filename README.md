@@ -184,3 +184,5 @@ To connect to a live Supabase PostgreSQL database:
 4. **Conflict Prevention**: A student cannot be assigned to multiple active dispatches on the same date, nor can a student be marked excused and dispatched on the same date.
 5. **Historical Integrity**: Students cannot be deleted if historical records exist; archiving deactivates them from future dispatches while preserving past audit trails.
 6. **Financial Reconciliations**: `Total Collected = Cash + GPay/UPI` and `Net Collection = Total Collected - Expenses`.
+#   E D U P A R K - F I E L D - P O R T A L  
+ 
