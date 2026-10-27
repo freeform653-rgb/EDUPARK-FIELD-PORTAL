@@ -38,6 +38,8 @@ interface AppContextType {
   toasts: ToastMessage[];
   removeToast: (id: string) => void;
   isLiveSupabase: boolean;
+  clearDispatchesAndSettlements: () => Promise<void>;
+  clearAllData: () => Promise<void>;
   resetDatabase: () => Promise<void>;
 }
 
@@ -118,10 +120,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     refreshData();
   }, [refreshData]);
 
+  const clearDispatchesAndSettlements = async () => {
+    setIsLoading(true);
+    try {
+      await StorageService.clearDispatchesAndSettlements();
+      await refreshData();
+      showToast('Dispatches and settlements cleared. Student records are preserved.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to clear dispatches and settlements.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const clearAllData = async () => {
+    setIsLoading(true);
+    try {
+      await StorageService.clearAllData();
+      await refreshData();
+      showToast('All system data, students, and operational records have been cleared.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to clear all data.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const resetDatabase = async () => {
-    StorageService.resetToSeed();
-    showToast('Database reset to initial sample records successfully.', 'success');
-    await refreshData();
+    await clearAllData();
   };
 
   return (
@@ -145,6 +171,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toasts,
         removeToast,
         isLiveSupabase,
+        clearDispatchesAndSettlements,
+        clearAllData,
         resetDatabase
       }}
     >

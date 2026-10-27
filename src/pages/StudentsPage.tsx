@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { StudentModal } from '../components/students/StudentModal';
+import { ImportStudentsModal } from '../components/students/ImportStudentsModal';
 import { ExcusesModal } from '../components/excuses/ExcusesModal';
+import { Modal } from '../components/ui/Modal';
 import { StudentStatusBadge } from '../components/ui/Badge';
 import { StorageService, STANDARD_BATCHES } from '../lib/storage';
 import { exportToCsv, exportToExcel, exportToPdf, triggerPrint } from '../lib/export-utils';
@@ -12,6 +14,7 @@ import {
   Filter,
   ArrowUpDown,
   Plus,
+  Upload,
   Printer,
   FileSpreadsheet,
   FileText,
@@ -22,7 +25,9 @@ import {
   Layers,
   Send,
   Clock,
-  ShieldAlert
+  ShieldAlert,
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 
 export const StudentsPage: React.FC = () => {
@@ -38,6 +43,13 @@ export const StudentsPage: React.FC = () => {
 
   // Excuse modal state
   const [excusesModalOpen, setExcusesModalOpen] = useState<boolean>(false);
+
+  // Import modal state
+  const [importModalOpen, setImportModalOpen] = useState<boolean>(false);
+
+  // Delete student confirmation state
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Student summary cards
   const summary = useMemo(() => {
@@ -107,6 +119,22 @@ export const StudentsPage: React.FC = () => {
       await refreshData();
     } catch (err: any) {
       showToast(err.message || 'Error updating student status', 'error');
+    }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!studentToDelete) return;
+    setIsDeleting(true);
+    try {
+      await StorageService.deleteStudent(studentToDelete.id);
+      await refreshData();
+      showToast(`Student "${studentToDelete.full_name}" was permanently deleted.`, 'success');
+      setStudentToDelete(null);
+      if (modalOpen) setModalOpen(false);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete student.', 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -218,6 +246,16 @@ export const StudentsPage: React.FC = () => {
             >
               <Plus className="w-4 h-4" />
               <span>Add Student</span>
+            </button>
+
+            {/* Import Students from Excel or PDF */}
+            <button
+              onClick={() => setImportModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 shadow-xs transition-colors"
+              title="Import students in bulk from Excel (.xlsx, .xls, .csv) or PDF"
+            >
+              <Upload className="w-4 h-4 text-emerald-700" />
+              <span>Import Excel / PDF</span>
             </button>
 
             {/* Excuse Option in Student Tab */}
@@ -437,6 +475,15 @@ export const StudentsPage: React.FC = () => {
                             <UserCheck className="w-3.5 h-3.5" />
                           )}
                         </button>
+
+                        {/* Permanent Delete Student */}
+                        <button
+                          onClick={() => setStudentToDelete(student)}
+                          title={`Permanently delete "${student.full_name}"`}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -452,6 +499,7 @@ export const StudentsPage: React.FC = () => {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         studentToEdit={studentToEdit}
+        onDeleteStudent={(s) => setStudentToDelete(s)}
       />
 
       {/* Excuses Modal */}
@@ -459,6 +507,70 @@ export const StudentsPage: React.FC = () => {
         isOpen={excusesModalOpen}
         onClose={() => setExcusesModalOpen(false)}
       />
+
+      {/* Bulk Import Students Modal (Excel / PDF) */}
+      <ImportStudentsModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+      />
+
+      {/* Delete Student Confirmation Modal */}
+      <Modal
+        isOpen={!!studentToDelete}
+        onClose={() => setStudentToDelete(null)}
+        title="Delete Student"
+        subtitle="Permanent deletion of student profile"
+        maxWidth="sm"
+      >
+        <div className="p-6 space-y-4">
+          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+            <Trash2 className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-rose-900">
+                Are you sure you want to permanently delete this student?
+              </p>
+              <p className="text-slate-700">
+                Student: <strong className="text-slate-900 font-semibold">{studentToDelete?.full_name}</strong>
+              </p>
+              <p className="text-slate-700">
+                Batch: <strong className="text-slate-900 font-semibold">{studentToDelete?.batch}</strong>
+              </p>
+              <p className="text-[11px] text-rose-700 pt-1">
+                This will permanently remove the student from the portal database.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setStudentToDelete(null)}
+              disabled={isDeleting}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteStudent}
+              disabled={isDeleting}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-xs transition-colors disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Student</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

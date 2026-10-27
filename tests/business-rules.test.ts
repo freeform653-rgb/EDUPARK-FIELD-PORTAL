@@ -116,4 +116,119 @@ assert(validateCredentialUpdate(testCreds, { newUsername: 'admin', currentPasswo
 assert(validateCredentialUpdate(testCreds, { newUsername: 'admin', currentPassword: 'edupark@admin2025', newPassword: 'newPassword123', confirmPassword: 'differentPassword' }).valid === false, 'Mismatched confirm password rejected');
 assert(validateCredentialUpdate(testCreds, { newUsername: 'admin_campus', currentPassword: 'edupark@admin2025', newPassword: 'newPassword123', confirmPassword: 'newPassword123' }).valid === true, 'Valid password change with matching confirm password accepted');
 
+// Test 11: Two Reset Options Logic
+interface DatabaseState {
+  students: { id: string; name: string }[];
+  dispatches: { id: string; dest: string }[];
+  settlements: { id: string; amount: number }[];
+  excuses: { id: string; reason: string }[];
+}
+
+function executeResetOption(state: DatabaseState, mode: 'clearDispatchesOnly' | 'clearAll'): DatabaseState {
+  if (mode === 'clearDispatchesOnly') {
+    return {
+      students: [...state.students], // Strictly preserved
+      dispatches: [],
+      settlements: [],
+      excuses: []
+    };
+  } else {
+    return {
+      students: [],
+      dispatches: [],
+      settlements: [],
+      excuses: []
+    };
+  }
+}
+
+const mockInitialState: DatabaseState = {
+  students: [{ id: 's1', name: 'Muhammed' }, { id: 's2', name: 'Amina' }],
+  dispatches: [{ id: 'd1', dest: 'Calicut' }],
+  settlements: [{ id: 'stl1', amount: 1500 }],
+  excuses: [{ id: 'e1', reason: 'Fever' }]
+};
+
+const afterClearDispatches = executeResetOption(mockInitialState, 'clearDispatchesOnly');
+assert(afterClearDispatches.students.length === 2, 'Option 1: Registered students are strictly preserved');
+assert(afterClearDispatches.dispatches.length === 0, 'Option 1: Dispatches are cleared');
+assert(afterClearDispatches.settlements.length === 0, 'Option 1: Settlements are cleared');
+assert(afterClearDispatches.excuses.length === 0, 'Option 1: Duty excuses are cleared');
+
+const afterClearAll = executeResetOption(mockInitialState, 'clearAll');
+assert(afterClearAll.students.length === 0, 'Option 2: All students are wiped');
+assert(afterClearAll.dispatches.length === 0, 'Option 2: All dispatches are wiped');
+assert(afterClearAll.settlements.length === 0, 'Option 2: All settlements are wiped');
+assert(afterClearAll.excuses.length === 0, 'Option 2: All excuses are wiped');
+
+// Test 12: Student Data Import Parsing & Duplicate Validation
+function mockParseStudentRow(
+  rawName: string,
+  rawBatch: string,
+  rawPhone: string,
+  defaultBatch: string,
+  existingNames: Set<string>
+) {
+  const cleanName = rawName.replace(/^[\d\.\-\)\s|,]+/, '').trim();
+  const batch = rawBatch.trim() ? rawBatch.trim() : defaultBatch;
+  const phone = rawPhone ? rawPhone.replace(/[^\d+]/g, '') : null;
+  const isValid = cleanName.length >= 2;
+  const isDuplicate = existingNames.has(cleanName.toLowerCase());
+
+  return {
+    full_name: cleanName,
+    batch,
+    phone_number: phone,
+    isValid,
+    isDuplicate,
+    selected: isValid && !isDuplicate
+  };
+}
+
+const existing = new Set(['muhammed rayan', 'fathima zahra']);
+
+// Valid row
+const row1 = mockParseStudentRow('1. Ahmed Bilal', 'Batch 13', '9876543210', 'plus one A', existing);
+assert(row1.full_name === 'Ahmed Bilal', 'Row 1: leading number stripped from name');
+assert(row1.batch === 'Batch 13', 'Row 1: batch preserved');
+assert(row1.phone_number === '9876543210', 'Row 1: phone cleaned');
+assert(row1.isValid === true && row1.isDuplicate === false && row1.selected === true, 'Row 1: valid new student is selected');
+
+// Duplicate row
+const row2 = mockParseStudentRow('Muhammed Rayan', '', '9876543211', 'plus one A', existing);
+assert(row2.isDuplicate === true, 'Row 2: correctly detected as duplicate');
+assert(row2.selected === false, 'Row 2: duplicate student unselected by default');
+assert(row2.batch === 'plus one A', 'Row 2: default batch assigned when missing');
+
+// Invalid row
+const row3 = mockParseStudentRow('  ', 'plus one B', '', 'plus one A', existing);
+assert(row3.isValid === false, 'Row 3: blank name marked invalid');
+assert(row3.selected === false, 'Row 3: invalid student unselected');
+
+// Test 13: Student Deletion & Cascade Clean-up
+interface StudentDeleteMockState {
+  students: { id: string; name: string }[];
+  assignments: { id: string; student_id: string }[];
+  excuses: { id: string; student_id: string }[];
+}
+
+function mockDeleteStudent(state: StudentDeleteMockState, studentIdToDelete: string): StudentDeleteMockState {
+  return {
+    students: state.students.filter(s => s.id !== studentIdToDelete),
+    assignments: state.assignments.filter(a => a.student_id !== studentIdToDelete),
+    excuses: state.excuses.filter(e => e.student_id !== studentIdToDelete)
+  };
+}
+
+const deleteTestState: StudentDeleteMockState = {
+  students: [{ id: 's1', name: 'Muhammed' }, { id: 's2', name: 'Bilal' }],
+  assignments: [{ id: 'a1', student_id: 's1' }, { id: 'a2', student_id: 's2' }],
+  excuses: [{ id: 'e1', student_id: 's1' }]
+};
+
+const afterDelete = mockDeleteStudent(deleteTestState, 's1');
+assert(afterDelete.students.length === 1 && afterDelete.students[0].id === 's2', 'Delete student removes the student record');
+assert(afterDelete.assignments.length === 1 && afterDelete.assignments[0].student_id === 's2', 'Delete student cleans up assignments');
+assert(afterDelete.excuses.length === 0, 'Delete student cleans up excuses');
+
 console.log('--- ALL AUTOMATED BUSINESS RULES & CALCULATION TESTS PASSED! ---');

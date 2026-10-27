@@ -93,8 +93,47 @@ export const StorageService = {
     return isSupabaseConfigured();
   },
 
-  // Completely wipe all local data to start fresh
-  clearAllData(): void {
+  // 1. Clear dispatches, assignments, settlements, excuses while strictly PRESERVING all students
+  async clearDispatchesAndSettlements(): Promise<void> {
+    if (this.isLiveSupabase() && supabase) {
+      try {
+        await supabase.from('settlements').delete().not('id', 'is', null);
+        await supabase.from('dispatch_assignments').delete().not('id', 'is', null);
+        await supabase.from('dispatches').delete().not('id', 'is', null);
+        await supabase.from('excuses').delete().not('id', 'is', null);
+      } catch (err) {
+        if (!isTableMissingError(err)) {
+          console.warn('Supabase clear dispatches error:', err);
+        }
+      }
+    }
+
+    setLocalItem(KEYS.SETTLEMENTS, []);
+    setLocalItem(KEYS.ASSIGNMENTS, []);
+    setLocalItem(KEYS.DISPATCHES, []);
+    setLocalItem(KEYS.EXCUSES, []);
+    await this.logAudit('CLEAR_DISPATCHES_AND_SETTLEMENTS', 'dispatches', 'all', {
+      action: 'Dispatches and settlements cleared. Student records preserved.'
+    });
+  },
+
+  // 2. Completely wipe all data: students, dispatches, assignments, settlements, excuses, audit logs
+  async clearAllData(): Promise<void> {
+    if (this.isLiveSupabase() && supabase) {
+      try {
+        await supabase.from('settlements').delete().not('id', 'is', null);
+        await supabase.from('dispatch_assignments').delete().not('id', 'is', null);
+        await supabase.from('dispatches').delete().not('id', 'is', null);
+        await supabase.from('excuses').delete().not('id', 'is', null);
+        await supabase.from('audit_logs').delete().not('id', 'is', null);
+        await supabase.from('students').delete().not('id', 'is', null);
+      } catch (err) {
+        if (!isTableMissingError(err)) {
+          console.warn('Supabase clear all data error:', err);
+        }
+      }
+    }
+
     setLocalItem(KEYS.STUDENTS, []);
     setLocalItem(KEYS.DISPATCHES, []);
     setLocalItem(KEYS.ASSIGNMENTS, []);
@@ -104,8 +143,8 @@ export const StorageService = {
   },
 
   // Alias for backward compatibility
-  resetToSeed(): void {
-    this.clearAllData();
+  async resetToSeed(): Promise<void> {
+    await this.clearAllData();
   },
 
   // --------------------------------------------------------------------------
@@ -176,6 +215,54 @@ export const StorageService = {
     setLocalItem(KEYS.STUDENTS, students);
     await this.logAudit('CREATE_STUDENT', 'students', newStudent.id, { name: trimmedName, batch: trimmedBatch });
     return newStudent;
+  },
+
+  async createStudentsBulk(
+    studentsToCreate: Array<{ full_name: string; batch: string; phone_number?: string | null }>
+  ): Promise<Student[]> {
+    if (!studentsToCreate.length) return [];
+
+    const now = new Date().toISOString();
+    const prepared: Student[] = studentsToCreate.map((s, index) => ({
+      id: `std-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`,
+      full_name: s.full_name.trim(),
+      batch: s.batch.trim(),
+      phone_number: s.phone_number?.trim() || null,
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    }));
+
+    if (this.isLiveSupabase() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .insert(prepared.map(s => ({
+            full_name: s.full_name,
+            batch: s.batch,
+            phone_number: s.phone_number,
+            is_active: true
+          })))
+          .select();
+
+        if (error) {
+          if (!isTableMissingError(error)) throw error;
+        } else if (data) {
+          await this.logAudit('BULK_IMPORT_STUDENTS', 'students', 'bulk', { count: data.length });
+          return data;
+        }
+      } catch (err: any) {
+        if (!isTableMissingError(err)) {
+          console.warn('Supabase bulk insert fallback to local storage:', err);
+        }
+      }
+    }
+
+    const existing = await this.getStudents();
+    const updated = [...existing, ...prepared];
+    setLocalItem(KEYS.STUDENTS, updated);
+    await this.logAudit('BULK_IMPORT_STUDENTS', 'students', 'bulk', { count: prepared.length });
+    return prepared;
   },
 
   async updateStudent(id: string, name: string, batch: string, phone?: string): Promise<Student> {
@@ -254,6 +341,68 @@ export const StorageService = {
     students[index].updated_at = new Date().toISOString();
     setLocalItem(KEYS.STUDENTS, students);
     await this.logAudit('ACTIVATE_STUDENT', 'students', id, {});
+  },
+
+  async deleteStudent(id: string): Promise<void> {
+    if (this.isLiveSupabase() && supabase) {
+      try {
+        // 1. Find assignments for this student to cleanly clean up dependent child records
+        const { data: assignments } = await supabase
+          .from('dispatch_assignments')
+          .select('id')
+          .eq('student_id', id);
+
+        if (assignments && assignments.length > 0) {
+          const assignmentIds = assignments.map(a => a.id);
+          // Delete settlements referencing these assignments
+          await supabase.from('settlements').delete().in('dispatch_assignment_id', assignmentIds);
+          // Delete assignments
+          await supabase.from('dispatch_assignments').delete().eq('student_id', id);
+        }
+
+        // 2. Delete any excuses for this student
+        await supabase.from('excuses').delete().eq('student_id', id);
+
+        // 3. Delete student record
+        const { error } = await supabase.from('students').delete().eq('id', id);
+        if (error) {
+          if (!isTableMissingError(error)) throw error;
+        }
+
+        await this.logAudit('DELETE_STUDENT', 'students', id, {});
+        return;
+      } catch (err: any) {
+        if (!isTableMissingError(err)) {
+          console.warn('Supabase deleteStudent error, falling back to local state:', err);
+        }
+      }
+    }
+
+    // LocalStorage deletion
+    const students = await this.getStudents();
+    const filteredStudents = students.filter(s => s.id !== id);
+    setLocalItem(KEYS.STUDENTS, filteredStudents);
+
+    // Clean up assignments & settlements for this student
+    const assignments = await this.getAssignments();
+    const assignmentsToDelete = assignments.filter(a => a.student_id === id);
+    const assignmentIdsToDelete = new Set(assignmentsToDelete.map(a => a.id));
+
+    if (assignmentIdsToDelete.size > 0) {
+      const remainingAssignments = assignments.filter(a => a.student_id !== id);
+      setLocalItem(KEYS.ASSIGNMENTS, remainingAssignments);
+
+      const settlements = await this.getSettlements();
+      const remainingSettlements = settlements.filter(s => !assignmentIdsToDelete.has(s.dispatch_assignment_id));
+      setLocalItem(KEYS.SETTLEMENTS, remainingSettlements);
+    }
+
+    // Clean up excuses
+    const excuses = await this.getExcuses();
+    const remainingExcuses = excuses.filter(e => e.student_id !== id);
+    setLocalItem(KEYS.EXCUSES, remainingExcuses);
+
+    await this.logAudit('DELETE_STUDENT', 'students', id, {});
   },
 
   // --------------------------------------------------------------------------

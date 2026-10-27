@@ -3,18 +3,20 @@ import { Modal } from '../ui/Modal';
 import { useApp } from '../../context/AppContext';
 import { StorageService, STANDARD_BATCHES } from '../../lib/storage';
 import { Student } from '../../types/database';
-import { User, Layers, Phone, AlertCircle } from 'lucide-react';
+import { User, Layers, Phone, AlertCircle, Trash2 } from 'lucide-react';
 
 interface StudentModalProps {
   isOpen: boolean;
   onClose: () => void;
   studentToEdit?: Student | null;
+  onDeleteStudent?: (student: Student) => void;
 }
 
 export const StudentModal: React.FC<StudentModalProps> = ({
   isOpen,
   onClose,
   studentToEdit,
+  onDeleteStudent,
 }) => {
   const { students, refreshData, showToast } = useApp();
   const [fullName, setFullName] = useState<string>('');
@@ -189,21 +191,36 @@ export const StudentModal: React.FC<StudentModalProps> = ({
         </div>
 
         {/* Buttons */}
-        <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-skyblue-600 hover:bg-skyblue-700 shadow-sm transition-all disabled:opacity-50"
-          >
-            {isSubmitting ? 'Saving...' : studentToEdit ? 'Update Student' : 'Register Student'}
-          </button>
+        <div className="pt-4 flex items-center justify-between gap-3 border-t border-slate-100">
+          <div>
+            {studentToEdit && onDeleteStudent && (
+              <button
+                type="button"
+                onClick={() => onDeleteStudent(studentToEdit)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>Delete Student</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-skyblue-600 hover:bg-skyblue-700 shadow-sm transition-all disabled:opacity-50"
+            >
+              {isSubmitting ? 'Saving...' : studentToEdit ? 'Update Student' : 'Register Student'}
+            </button>
+          </div>
         </div>
       </form>
     </Modal>
