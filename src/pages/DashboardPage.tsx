@@ -5,7 +5,6 @@ import { ExcusesModal } from '../components/excuses/ExcusesModal';
 import { StudentModal } from '../components/students/StudentModal';
 import { CreateDispatchModal } from '../components/dispatches/CreateDispatchModal';
 import { formatCurrency } from '../lib/calculations';
-import { ModelDashboard } from '../components/dashboard/ModelDashboard';
 import {
   Users,
   Send,
@@ -16,9 +15,7 @@ import {
   TrendingUp,
   PlusCircle,
   Activity,
-  PieChart as PieIcon,
-  BarChart3,
-  Sparkles
+  PieChart as PieIcon
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -52,7 +49,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
   const [excusesModalOpen, setExcusesModalOpen] = useState<boolean>(false);
   const [studentModalOpen, setStudentModalOpen] = useState<boolean>(false);
   const [dispatchModalOpen, setDispatchModalOpen] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<'model' | 'classic'>('model');
 
   // Chart data: Collections by Batch
   const batchData = React.useMemo(() => {
@@ -77,59 +73,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
     ];
   }, [settlements]);
 
-  if (viewMode === 'model') {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-end">
-          <button
-            onClick={() => setViewMode('classic')}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-800 bg-white/90 hover:bg-white px-3.5 py-1.5 rounded-full border border-slate-200/90 shadow-2xs flex items-center gap-1.5 transition"
-          >
-            <BarChart3 className="w-3.5 h-3.5 text-slate-500" />
-            <span>Classic Operations Table</span>
-          </button>
-        </div>
-
-        <ModelDashboard
-          onNavigateTab={onNavigateTab}
-          onOpenCreateDispatch={() => setDispatchModalOpen(true)}
-          onOpenAddStudent={() => setStudentModalOpen(true)}
-          onOpenExcuses={() => setExcusesModalOpen(true)}
-        />
-
-        {/* Excuses Modal */}
-        <ExcusesModal
-          isOpen={excusesModalOpen}
-          onClose={() => setExcusesModalOpen(false)}
-        />
-
-        {/* Student Modal */}
-        <StudentModal
-          isOpen={studentModalOpen}
-          onClose={() => setStudentModalOpen(false)}
-        />
-
-        {/* Dispatch Modal */}
-        <CreateDispatchModal
-          isOpen={dispatchModalOpen}
-          onClose={() => setDispatchModalOpen(false)}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setViewMode('model')}
-          className="text-xs font-semibold text-[#654cf6] hover:text-[#523ad4] bg-purple-50 hover:bg-purple-100 px-3.5 py-1.5 rounded-full border border-purple-200/90 shadow-2xs flex items-center gap-1.5 transition"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Switch to Modern Curved UI</span>
-        </button>
-      </div>
-
       {/* Date Filter & Control Header */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
