@@ -384,113 +384,202 @@ export const StudentsPage: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3.5 px-4 w-14">#</th>
-                  <th className="py-3.5 px-4">Student Name</th>
-                  <th className="py-3.5 px-4">Batch</th>
-                  <th className="py-3.5 px-4">Phone Number</th>
-                  <th className="py-3.5 px-4">Current Status</th>
-                  <th className="py-3.5 px-4 text-right no-print">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {filteredStudents.map((student: Student, idx: number) => (
-                  <tr
-                    key={student.id}
-                    className={`hover:bg-slate-50/80 transition-colors ${
-                      !student.is_active ? 'opacity-60 bg-slate-50/40' : ''
-                    }`}
-                  >
-                    <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">
-                      {idx + 1}
-                    </td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-900">
-                      <div className="flex items-center gap-2">
-                        <span>{student.full_name}</span>
+          <>
+            {/* Mobile Card List (Smooth, Touch-Friendly on Phones) */}
+            <div className="block md:hidden divide-y divide-slate-100">
+              {filteredStudents.map((student: Student) => (
+                <div
+                  key={student.id}
+                  className={`p-4 space-y-3 transition-colors ${
+                    !student.is_active ? 'opacity-65 bg-slate-50/50' : 'bg-white hover:bg-slate-50/50'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="font-bold text-slate-900 text-sm">{student.full_name}</h4>
                         {!student.is_active && (
                           <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-normal">
                             Archived
                           </span>
                         )}
                       </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
-                        <Layers className="w-3.5 h-3.5 text-skyblue-600" />
-                        {student.batch}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-600">
-                      {student.phone_number ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Phone className="w-3.5 h-3.5 text-slate-400" />
-                          {student.phone_number}
+                      <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                        <span className="inline-flex items-center gap-1 font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                          <Layers className="w-3 h-3 text-skyblue-600" />
+                          {student.batch}
                         </span>
-                      ) : (
-                        <span className="text-slate-400 italic">None</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="space-y-0.5">
-                        <StudentStatusBadge status={student.current_status} />
-                        {student.current_status === 'Excused' && student.excuse_reason && (
-                          <p className="text-[10px] text-rose-600 font-medium truncate max-w-xs">
-                            Reason: {student.excuse_reason}
-                          </p>
+                        {student.phone_number ? (
+                          <a
+                            href={`tel:${student.phone_number}`}
+                            className="inline-flex items-center gap-1 text-skyblue-600 hover:underline"
+                          >
+                            <Phone className="w-3 h-3 text-slate-400" />
+                            <span>{student.phone_number}</span>
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 italic">No phone</span>
                         )}
                       </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-right no-print">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* Direct Excuse Student Option */}
-                        <button
-                          onClick={() => setExcusesModalOpen(true)}
-                          title="Record Excuse / Exemption for this student"
-                          className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 transition-colors"
-                        >
-                          <UserCheck className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleOpenEdit(student)}
-                          title="Edit student"
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-navy-900 hover:bg-slate-100 transition-colors"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleActive(student)}
-                          title={student.is_active ? 'Deactivate / Archive' : 'Reactivate'}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            student.is_active
-                              ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
-                              : 'text-emerald-600 hover:bg-emerald-50'
-                          }`}
-                        >
-                          {student.is_active ? (
-                            <UserX className="w-3.5 h-3.5" />
-                          ) : (
-                            <UserCheck className="w-3.5 h-3.5" />
-                          )}
-                        </button>
+                    </div>
 
-                        {/* Permanent Delete Student */}
-                        <button
-                          onClick={() => setStudentToDelete(student)}
-                          title={`Permanently delete "${student.full_name}"`}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
+                    <div className="shrink-0">
+                      <StudentStatusBadge status={student.current_status} />
+                    </div>
+                  </div>
+
+                  {student.current_status === 'Excused' && student.excuse_reason && (
+                    <p className="text-[11px] text-rose-600 font-medium bg-rose-50/80 px-2.5 py-1 rounded-lg">
+                      Excuse: {student.excuse_reason}
+                    </p>
+                  )}
+
+                  {/* Mobile Action Buttons */}
+                  <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100/80 no-print">
+                    <button
+                      onClick={() => setExcusesModalOpen(true)}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1"
+                      title="Record Excuse"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Excuse</span>
+                    </button>
+                    <button
+                      onClick={() => handleOpenEdit(student)}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1"
+                      title="Edit student"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => handleToggleActive(student)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 ${
+                        student.is_active ? 'text-slate-500 hover:bg-slate-100' : 'text-emerald-600 hover:bg-emerald-50'
+                      }`}
+                      title={student.is_active ? 'Archive' : 'Reactivate'}
+                    >
+                      {student.is_active ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                      <span>{student.is_active ? 'Archive' : 'Activate'}</span>
+                    </button>
+                    <button
+                      onClick={() => setStudentToDelete(student)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                      title="Delete student"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table (Visible on md and larger) */}
+            <div className="hidden md:block overflow-x-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                    <th className="py-3.5 px-4 w-14">#</th>
+                    <th className="py-3.5 px-4">Student Name</th>
+                    <th className="py-3.5 px-4">Batch</th>
+                    <th className="py-3.5 px-4">Phone Number</th>
+                    <th className="py-3.5 px-4">Current Status</th>
+                    <th className="py-3.5 px-4 text-right no-print">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {filteredStudents.map((student: Student, idx: number) => (
+                    <tr
+                      key={student.id}
+                      className={`hover:bg-slate-50/80 transition-colors ${
+                        !student.is_active ? 'opacity-60 bg-slate-50/40' : ''
+                      }`}
+                    >
+                      <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">
+                        {idx + 1}
+                      </td>
+                      <td className="py-3.5 px-4 font-semibold text-slate-900">
+                        <div className="flex items-center gap-2">
+                          <span>{student.full_name}</span>
+                          {!student.is_active && (
+                            <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-normal">
+                              Archived
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
+                          <Layers className="w-3.5 h-3.5 text-skyblue-600" />
+                          {student.batch}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-600">
+                        {student.phone_number ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Phone className="w-3.5 h-3.5 text-slate-400" />
+                            {student.phone_number}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">None</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="space-y-0.5">
+                          <StudentStatusBadge status={student.current_status} />
+                          {student.current_status === 'Excused' && student.excuse_reason && (
+                            <p className="text-[10px] text-rose-600 font-medium truncate max-w-xs">
+                              Reason: {student.excuse_reason}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-right no-print">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setExcusesModalOpen(true)}
+                            title="Record Excuse / Exemption for this student"
+                            className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 transition-colors"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenEdit(student)}
+                            title="Edit student"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-navy-900 hover:bg-slate-100 transition-colors"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleActive(student)}
+                            title={student.is_active ? 'Deactivate / Archive' : 'Reactivate'}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              student.is_active
+                                ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                                : 'text-emerald-600 hover:bg-emerald-50'
+                            }`}
+                          >
+                            {student.is_active ? (
+                              <UserX className="w-3.5 h-3.5" />
+                            ) : (
+                              <UserCheck className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setStudentToDelete(student)}
+                            title={`Permanently delete "${student.full_name}"`}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

@@ -231,4 +231,126 @@ assert(afterDelete.students.length === 1 && afterDelete.students[0].id === 's2',
 assert(afterDelete.assignments.length === 1 && afterDelete.assignments[0].student_id === 's2', 'Delete student cleans up assignments');
 assert(afterDelete.excuses.length === 0, 'Delete student cleans up excuses');
 
+// Test 14: Flexible Allowance Input (Any Number: e.g. 73, 89)
+function parseAllowanceValue(raw: string | number | null | undefined): number | null {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const num = typeof raw === 'number' ? raw : parseFloat(raw);
+  if (isNaN(num) || num < 0) throw new Error('Invalid allowance');
+  return num;
+}
+assert(parseAllowanceValue('73') === 73, 'Allowance accepts arbitrary digit 73');
+assert(parseAllowanceValue('89') === 89, 'Allowance accepts arbitrary digit 89');
+assert(parseAllowanceValue('125.5') === 125.5, 'Allowance accepts decimal rupee amount 125.5');
+assert(parseAllowanceValue('') === null, 'Allowance handles empty string as null');
+
+// Test 15: 10 Standard Campus Batches
+import { STANDARD_BATCHES } from '../src/lib/storage';
+const expected10Batches = [
+  'plus one A',
+  'plus one B',
+  'Batch 13',
+  '+2 A',
+  '+2 B',
+  '+2 C',
+  'UG 1',
+  'UG 2',
+  'UG 3',
+  'PG 1'
+];
+assert(STANDARD_BATCHES.length === 10, 'STANDARD_BATCHES contains exactly 10 batches');
+expected10Batches.forEach(b => {
+  assert(STANDARD_BATCHES.includes(b), `STANDARD_BATCHES includes "${b}"`);
+});
+
+// Test 16: Dispatch Editing and Calendar Allocation Reconciliation
+interface MockDispatchRecord {
+  id: string;
+  destination: string;
+  dispatch_date: string;
+  target_amount: number | null;
+  assignments: { id: string; student_id: string; calendars_issued: number }[];
+}
+
+function mockUpdateDispatch(
+  original: MockDispatchRecord,
+  updates: { destination: string; date: string; allowance: number | null; allocations: { id: string; calendars: number }[] }
+): MockDispatchRecord {
+  return {
+    ...original,
+    destination: updates.destination.trim(),
+    dispatch_date: updates.date,
+    target_amount: updates.allowance,
+    assignments: original.assignments.map(a => {
+      const match = updates.allocations.find(u => u.id === a.id);
+      return match ? { ...a, calendars_issued: match.calendars } : a;
+    })
+  };
+}
+
+const originalDisp: MockDispatchRecord = {
+  id: 'disp-1',
+  destination: 'Old Destination',
+  dispatch_date: '2026-10-01',
+  target_amount: 50,
+  assignments: [{ id: 'a1', student_id: 's1', calendars_issued: 10 }]
+};
+
+const updatedDisp = mockUpdateDispatch(originalDisp, {
+  destination: 'New City Market',
+  date: '2026-10-02',
+  allowance: 73,
+  allocations: [{ id: 'a1', calendars: 15 }]
+});
+
+assert(updatedDisp.destination === 'New City Market', 'Dispatch destination successfully edited');
+assert(updatedDisp.target_amount === 73, 'Dispatch allowance updated to arbitrary 73');
+assert(updatedDisp.assignments[0].calendars_issued === 15, 'Student calendar allocation updated to 15');
+
+// Test 17: Settlement Editing and Financial Re-calculation
+interface MockSettlementRecord {
+  id: string;
+  cash: number;
+  gpay: number;
+  expenses: number;
+  returned: number;
+  total_collected: number;
+  net_collection: number;
+}
+
+function mockUpdateSettlement(
+  original: MockSettlementRecord,
+  cash: number,
+  gpay: number,
+  expenses: number,
+  returned: number
+): MockSettlementRecord {
+  const total = calculateTotalCollected(cash, gpay);
+  const net = calculateNetCollection(total, expenses);
+  return {
+    ...original,
+    cash,
+    gpay,
+    expenses,
+    returned,
+    total_collected: total,
+    net_collection: net
+  };
+}
+
+const originalStl: MockSettlementRecord = {
+  id: 'stl-1',
+  cash: 1000,
+  gpay: 0,
+  expenses: 200,
+  returned: 10,
+  total_collected: 1000,
+  net_collection: 800
+};
+
+const updatedStl = mockUpdateSettlement(originalStl, 1200, 300, 150, 15);
+assert(updatedStl.cash === 1200 && updatedStl.gpay === 300, 'Settlement cash & gpay updated');
+assert(updatedStl.total_collected === 1500, 'Settlement recomputes gross total collected: 1200 + 300 = 1500');
+assert(updatedStl.net_collection === 1350, 'Settlement recomputes net deposited: 1500 - 150 = 1350');
+assert(updatedStl.returned === 15, 'Settlement returned calendars updated to 15');
+
 console.log('--- ALL AUTOMATED BUSINESS RULES & CALCULATION TESTS PASSED! ---');

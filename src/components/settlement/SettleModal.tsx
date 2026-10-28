@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../ui/Modal';
 import { useApp } from '../../context/AppContext';
 import { StorageService } from '../../lib/storage';
-import { PopulatedAssignment, Dispatch } from '../../types/database';
+import { PopulatedAssignment, Dispatch, PopulatedSettlement } from '../../types/database';
 import {
   calculateTotalCollected,
   calculateNetCollection,
@@ -12,16 +12,8 @@ import {
   getLocalDateString
 } from '../../lib/calculations';
 import {
-  CreditCard,
-  Calendar,
-  DollarSign,
   AlertCircle,
   AlertTriangle,
-  BookOpen,
-  ArrowRight,
-  Receipt,
-  User,
-  MapPin,
   CheckCircle2
 } from 'lucide-react';
 
@@ -30,6 +22,7 @@ interface SettleModalProps {
   onClose: () => void;
   assignment: PopulatedAssignment | null;
   parentDispatch: Dispatch | null;
+  settlementToEdit?: PopulatedSettlement | null;
   onSettledSuccess?: () => void;
 }
 
@@ -38,9 +31,17 @@ export const SettleModal: React.FC<SettleModalProps> = ({
   onClose,
   assignment,
   parentDispatch,
+  settlementToEdit,
   onSettledSuccess
 }) => {
   const { refreshData, showToast } = useApp();
+
+  const isEditMode = Boolean(settlementToEdit);
+  const effectiveAssignment = assignment || (settlementToEdit ? {
+    ...settlementToEdit.assignment,
+    student: settlementToEdit.student
+  } as PopulatedAssignment : null);
+  const effectiveDispatch = parentDispatch || settlementToEdit?.dispatch || null;
 
   const [cashCollected, setCashCollected] = useState<string>('');
   const [gpayCollected, setGpayCollected] = useState<string>('');
@@ -53,21 +54,30 @@ export const SettleModal: React.FC<SettleModalProps> = ({
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const calendarsIssued = assignment?.calendars_issued || 0;
+  const calendarsIssued = effectiveAssignment?.calendars_issued || 0;
 
   // Initialize defaults when modal opens
   useEffect(() => {
-    if (isOpen && assignment) {
-      setCashCollected('');
-      setGpayCollected('');
-      setCalendarsReturned(String(assignment.calendars_issued || 0));
-      setExpenses('0');
-      setSettlementDate(getLocalDateString());
-      setNotes('');
+    if (isOpen) {
+      if (settlementToEdit) {
+        setCashCollected(String(settlementToEdit.cash_amount ?? ''));
+        setGpayCollected(String(settlementToEdit.gpay_amount ?? ''));
+        setCalendarsReturned(String(settlementToEdit.calendars_returned ?? ''));
+        setExpenses(String(settlementToEdit.expenses ?? '0'));
+        setSettlementDate(settlementToEdit.settlement_date || getLocalDateString());
+        setNotes(settlementToEdit.notes || '');
+      } else if (assignment) {
+        setCashCollected('');
+        setGpayCollected('');
+        setCalendarsReturned(String(assignment.calendars_issued || 0));
+        setExpenses('0');
+        setSettlementDate(getLocalDateString());
+        setNotes('');
+      }
       setErrorMsg(null);
       setWarningMsg(null);
     }
-  }, [isOpen, assignment]);
+  }, [isOpen, assignment, settlementToEdit]);
 
   // Live Calculations
   const numericCash = parseFloat(cashCollected) || 0;
@@ -97,16 +107,16 @@ export const SettleModal: React.FC<SettleModalProps> = ({
 
     if (netCollection < 0) {
       setWarningMsg('Warning: Net collection is negative (expenses exceed total collected money).');
-    } else if (parentDispatch?.target_amount && numericExpenses > parentDispatch.target_amount) {
-      setWarningMsg(`Note: Incurred expenses (${formatCurrency(numericExpenses)}) exceed the campus allowance (${formatCurrency(parentDispatch.target_amount)}).`);
+    } else if (effectiveDispatch?.target_amount && numericExpenses > effectiveDispatch.target_amount) {
+      setWarningMsg(`Note: Incurred expenses (${formatCurrency(numericExpenses)}) exceed the campus allowance (${formatCurrency(effectiveDispatch.target_amount)}).`);
     } else {
       setWarningMsg(null);
     }
-  }, [numericReturned, calendarsIssued, netCollection, numericExpenses, parentDispatch]);
+  }, [numericReturned, calendarsIssued, netCollection, numericExpenses, effectiveDispatch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!assignment) return;
+    if (!effectiveAssignment) return;
 
     if (numericReturned < 0 || !Number.isInteger(numericReturned)) {
       setErrorMsg('Calendars returned must be a non-negative integer.');
@@ -129,20 +139,36 @@ export const SettleModal: React.FC<SettleModalProps> = ({
 
     try {
       setIsSubmitting(true);
-      await StorageService.createSettlement(
-        assignment.id,
-        numericCash,
-        numericGpay,
-        numericReturned,
-        numericExpenses,
-        settlementDate,
-        notes
-      );
+      if (isEditMode && settlementToEdit) {
+        await StorageService.updateSettlement(
+          settlementToEdit.id,
+          numericCash,
+          numericGpay,
+          numericReturned,
+          numericExpenses,
+          settlementDate,
+          notes
+        );
+        showToast(
+          `Settlement updated for ${effectiveAssignment.student?.full_name || 'student'}: Net ${formatCurrency(netCollection)}.`,
+          'success'
+        );
+      } else if (assignment) {
+        await StorageService.createSettlement(
+          assignment.id,
+          numericCash,
+          numericGpay,
+          numericReturned,
+          numericExpenses,
+          settlementDate,
+          notes
+        );
+        showToast(
+          `Settlement recorded for ${assignment.student.full_name}: Net ${formatCurrency(netCollection)}.`,
+          'success'
+        );
+      }
 
-      showToast(
-        `Settlement recorded for ${assignment.student.full_name}: Net ${formatCurrency(netCollection)}.`,
-        'success'
-      );
       await refreshData();
       if (onSettledSuccess) onSettledSuccess();
       onClose();
@@ -153,14 +179,18 @@ export const SettleModal: React.FC<SettleModalProps> = ({
     }
   };
 
-  if (!assignment || !parentDispatch) return null;
+  if (!effectiveAssignment || !effectiveDispatch) return null;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Settle Student Assignment"
-      subtitle="Reconcile collection cash, UPI, returned physical calendars, and travel expenses"
+      title={isEditMode ? 'Edit Settlement Details' : 'Settle Student Assignment'}
+      subtitle={
+        isEditMode
+          ? `Modify collections and returns for Receipt #${settlementToEdit?.id}`
+          : 'Reconcile collection cash, UPI, returned physical calendars, and travel expenses'
+      }
       maxWidth="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -168,32 +198,32 @@ export const SettleModal: React.FC<SettleModalProps> = ({
         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div>
             <span className="text-slate-400 block font-medium">Student Name:</span>
-            <span className="font-bold text-slate-900 text-sm">{assignment.student.full_name}</span>
+            <span className="font-bold text-slate-900 text-sm">{effectiveAssignment.student?.full_name || 'Student'}</span>
           </div>
           <div>
             <span className="text-slate-400 block font-medium">Batch:</span>
-            <span className="font-semibold text-slate-800">{assignment.student.batch}</span>
+            <span className="font-semibold text-slate-800">{effectiveAssignment.student?.batch || 'N/A'}</span>
           </div>
           <div>
             <span className="text-slate-400 block font-medium">Dispatch Type:</span>
-            <span className="font-semibold text-purple-700">{parentDispatch.dispatch_type}</span>
+            <span className="font-semibold text-purple-700">{effectiveDispatch.dispatch_type}</span>
           </div>
           <div>
             <span className="text-slate-400 block font-medium">Destination:</span>
-            <span className="font-semibold text-slate-800 truncate block">{parentDispatch.destination}</span>
+            <span className="font-semibold text-slate-800 truncate block">{effectiveDispatch.destination}</span>
           </div>
           <div>
             <span className="text-slate-400 block font-medium">Dispatch Date:</span>
-            <span className="font-semibold text-slate-800">{formatDisplayDate(parentDispatch.dispatch_date)}</span>
+            <span className="font-semibold text-slate-800">{formatDisplayDate(effectiveDispatch.dispatch_date)}</span>
           </div>
           <div>
             <span className="text-slate-400 block font-medium">Calendars Issued:</span>
             <span className="font-extrabold text-skyblue-700 text-sm">{calendarsIssued}</span>
           </div>
-          {parentDispatch.target_amount ? (
+          {effectiveDispatch.target_amount ? (
             <div>
               <span className="text-slate-400 block font-medium">Campus Allowance:</span>
-              <span className="font-extrabold text-emerald-700 text-sm">{formatCurrency(parentDispatch.target_amount)}</span>
+              <span className="font-extrabold text-emerald-700 text-sm">{formatCurrency(effectiveDispatch.target_amount)}</span>
             </div>
           ) : null}
         </div>
@@ -381,7 +411,13 @@ export const SettleModal: React.FC<SettleModalProps> = ({
             className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
           >
             <CheckCircle2 className="w-4 h-4" />
-            <span>{isSubmitting ? 'Recording Settlement...' : 'Confirm & Finalize Settlement'}</span>
+            <span>
+              {isSubmitting
+                ? 'Saving...'
+                : isEditMode
+                ? 'Save Settlement Changes'
+                : 'Confirm & Finalize Settlement'}
+            </span>
           </button>
         </div>
       </form>

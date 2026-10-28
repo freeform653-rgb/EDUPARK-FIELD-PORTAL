@@ -285,14 +285,14 @@ export const CreateDispatchModal: React.FC<CreateDispatchModalProps> = ({
               <input
                 type="number"
                 min="0"
-                step="50"
+                step="any"
                 value={targetAmount}
                 onChange={(e) => setTargetAmount(e.target.value)}
-                placeholder="e.g. 500 (Campus allowance for travel & food)"
+                placeholder="e.g. 73, 89, 500 (Campus allowance for travel & food)"
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-skyblue-500/20 focus:border-skyblue-500"
               />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">Cash allowance given by campus for student travel, auto/bus fare, and food.</p>
+            <p className="text-[11px] text-slate-400 mt-1">Cash allowance given by campus for student travel, auto/bus fare, and food (any amount accepted).</p>
           </div>
 
           <div>

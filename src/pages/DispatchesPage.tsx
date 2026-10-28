@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { CreateDispatchModal } from '../components/dispatches/CreateDispatchModal';
+import { EditDispatchModal } from '../components/dispatches/EditDispatchModal';
 import { SettleModal } from '../components/settlement/SettleModal';
 import { DispatchStatusBadge, DispatchTypeBadge } from '../components/ui/Badge';
-import { PopulatedDispatch, PopulatedAssignment, DateFilterType } from '../types/database';
+import { PopulatedDispatch, PopulatedAssignment, PopulatedSettlement, DateFilterType } from '../types/database';
 import { formatCurrency, formatDisplayDate, matchesDateFilter } from '../lib/calculations';
 import { exportToCsv, exportToExcel, exportToPdf, triggerPrint } from '../lib/export-utils';
 import {
@@ -20,7 +21,8 @@ import {
   CreditCard,
   CheckCircle2,
   MapPin,
-  User
+  User,
+  Edit3
 } from 'lucide-react';
 
 export const DispatchesPage: React.FC = () => {
@@ -33,11 +35,14 @@ export const DispatchesPage: React.FC = () => {
 
   const [expandedDispatchIds, setExpandedDispatchIds] = useState<Set<string>>(new Set());
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
+  const [editDispatchModalOpen, setEditDispatchModalOpen] = useState<boolean>(false);
+  const [dispatchToEdit, setDispatchToEdit] = useState<PopulatedDispatch | null>(null);
 
   // Settle modal state
   const [settleModalOpen, setSettleModalOpen] = useState<boolean>(false);
   const [selectedAssignmentToSettle, setSelectedAssignmentToSettle] = useState<PopulatedAssignment | null>(null);
   const [parentDispatchForSettle, setParentDispatchForSettle] = useState<PopulatedDispatch | null>(null);
+  const [settlementToEdit, setSettlementToEdit] = useState<PopulatedSettlement | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedDispatchIds(prev => {
@@ -49,6 +54,26 @@ export const DispatchesPage: React.FC = () => {
   };
 
   const handleOpenSettle = (assignment: PopulatedAssignment, dispatch: PopulatedDispatch) => {
+    setSettlementToEdit(null);
+    setSelectedAssignmentToSettle(assignment);
+    setParentDispatchForSettle(dispatch);
+    setSettleModalOpen(true);
+  };
+
+  const handleOpenEditDispatch = (dispatch: PopulatedDispatch) => {
+    setDispatchToEdit(dispatch);
+    setEditDispatchModalOpen(true);
+  };
+
+  const handleOpenEditSettlement = (assignment: PopulatedAssignment, dispatch: PopulatedDispatch) => {
+    if (!assignment.settlement) return;
+    const popSettlement: PopulatedSettlement = {
+      ...assignment.settlement,
+      assignment,
+      student: assignment.student,
+      dispatch,
+    };
+    setSettlementToEdit(popSettlement);
     setSelectedAssignmentToSettle(assignment);
     setParentDispatchForSettle(dispatch);
     setSettleModalOpen(true);
@@ -247,6 +272,14 @@ export const DispatchesPage: React.FC = () => {
                           detailText={isTeam ? progressRatio : undefined}
                         />
                         <span className="text-xs text-slate-400 font-mono">#{dispatch.id}</span>
+                        <button
+                          onClick={() => handleOpenEditDispatch(dispatch)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-skyblue-700 bg-slate-100 hover:bg-skyblue-50 transition-colors"
+                          title="Edit dispatch details & calendars"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Edit Dispatch</span>
+                        </button>
                       </div>
 
                       {/* Main Headline: Highlighted Student Name(s) + Place on the side */}
@@ -341,13 +374,23 @@ export const DispatchesPage: React.FC = () => {
                             )}
                           </button>
                         ) : (
-                          // For individual dispatch, show direct Settle or Settled badge
+                          // For individual dispatch, show direct Settle or Settled badge + Edit
                           dispatch.assignments[0] && (
                             dispatch.assignments[0].assignment_status === 'Settled' ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>Settled</span>
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Settled</span>
+                                </span>
+                                <button
+                                  onClick={() => handleOpenEditSettlement(dispatch.assignments[0], dispatch)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-navy-900 bg-slate-100 hover:bg-slate-200 transition-colors"
+                                  title="Edit settlement amounts"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                                  <span>Edit</span>
+                                </button>
+                              </div>
                             ) : (
                               <button
                                 onClick={() => handleOpenSettle(dispatch.assignments[0], dispatch)}
@@ -426,9 +469,18 @@ export const DispatchesPage: React.FC = () => {
                                     Settle
                                   </button>
                                 ) : (
-                                  <span className="text-[11px] font-semibold text-emerald-600">
-                                    ✓ Done
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[11px] font-semibold text-emerald-600">
+                                      ✓ Done
+                                    </span>
+                                    <button
+                                      onClick={() => handleOpenEditSettlement(asgn, dispatch)}
+                                      className="p-1 rounded text-slate-400 hover:text-navy-900 hover:bg-slate-100 transition-colors"
+                                      title="Edit settlement"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -450,12 +502,28 @@ export const DispatchesPage: React.FC = () => {
         onClose={() => setCreateModalOpen(false)}
       />
 
+      {/* Edit Dispatch Modal */}
+      <EditDispatchModal
+        isOpen={editDispatchModalOpen}
+        onClose={() => {
+          setEditDispatchModalOpen(false);
+          setDispatchToEdit(null);
+        }}
+        dispatch={dispatchToEdit}
+      />
+
       {/* Settle Assignment Modal */}
       <SettleModal
         isOpen={settleModalOpen}
-        onClose={() => setSettleModalOpen(false)}
+        onClose={() => {
+          setSettleModalOpen(false);
+          setSelectedAssignmentToSettle(null);
+          setParentDispatchForSettle(null);
+          setSettlementToEdit(null);
+        }}
         assignment={selectedAssignmentToSettle}
         parentDispatch={parentDispatchForSettle}
+        settlementToEdit={settlementToEdit}
       />
     </div>
   );

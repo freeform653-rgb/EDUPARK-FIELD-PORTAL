@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sidebar, NavTab } from './Sidebar';
 import { Header } from './Header';
+import { MobileBottomNav } from './MobileBottomNav';
 import { ToastContainer } from '../ui/Toast';
 import { X } from 'lucide-react';
 
@@ -66,13 +67,20 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           onSelectTab={onSelectTab}
         />
 
-        {/* Scrollable Page Body */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto space-y-6">
+        {/* Scrollable Page Body with mobile safe area bottom spacing */}
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-3.5 sm:p-6 lg:p-8 pb-24 sm:pb-8">
+          <div className="max-w-7xl mx-auto space-y-5 sm:space-y-6">
             {children}
           </div>
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        currentTab={currentTab}
+        onSelectTab={onSelectTab}
+        onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
+      />
 
       {/* Global Toast Notifications */}
       <ToastContainer />

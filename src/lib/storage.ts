@@ -23,8 +23,19 @@ import {
   getLocalDateString
 } from './calculations';
 
-// Standard Campus Batches requested by administration
-export const STANDARD_BATCHES = ['plus one A', 'plus one B', 'Batch 13'];
+// Standard Campus Batches requested by administration (10 cohorts)
+export const STANDARD_BATCHES = [
+  'plus one A',
+  'plus one B',
+  'Batch 13',
+  '+2 A',
+  '+2 B',
+  '+2 C',
+  'UG 1',
+  'UG 2',
+  'UG 3',
+  'PG 1',
+];
 
 // LocalStorage Keys - Clean V2 (Empty initial state)
 const KEYS = {
@@ -612,6 +623,107 @@ export const StorageService = {
     return newDispatch;
   },
 
+  async updateDispatch(
+    dispatchId: string,
+    destination: string,
+    dispatchDate: string,
+    travelAdvance: number | null,
+    studentAllocations: { assignmentId?: string; studentId: string; calendarsIssued: number }[],
+    notes?: string
+  ): Promise<Dispatch> {
+    const trimmedDest = destination.trim();
+    if (!trimmedDest) throw new Error('Destination is required');
+    if (!dispatchDate) throw new Error('Dispatch date is required');
+    if (!studentAllocations || studentAllocations.length === 0) {
+      throw new Error('At least one student must be assigned');
+    }
+
+    for (const alloc of studentAllocations) {
+      if (alloc.calendarsIssued < 0 || !Number.isInteger(alloc.calendarsIssued)) {
+        throw new Error('Calendars issued must be a non-negative integer');
+      }
+    }
+
+    const advanceValue = travelAdvance !== null && travelAdvance !== undefined && !isNaN(travelAdvance)
+      ? Number(travelAdvance)
+      : null;
+
+    if (this.isLiveSupabase() && supabase) {
+      const { data: updatedDispatch, error: dispError } = await supabase
+        .from('dispatches')
+        .update({
+          destination: trimmedDest,
+          dispatch_date: dispatchDate,
+          target_amount: advanceValue,
+          notes: notes?.trim() || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', dispatchId)
+        .select()
+        .single();
+      if (dispError) throw dispError;
+
+      for (const alloc of studentAllocations) {
+        if (alloc.assignmentId) {
+          await supabase
+            .from('dispatch_assignments')
+            .update({ calendars_issued: alloc.calendarsIssued })
+            .eq('id', alloc.assignmentId);
+        } else if (alloc.studentId) {
+          await supabase
+            .from('dispatch_assignments')
+            .update({ calendars_issued: alloc.calendarsIssued })
+            .eq('dispatch_id', dispatchId)
+            .eq('student_id', alloc.studentId);
+        }
+      }
+
+      await this.logAudit('UPDATE_DISPATCH', 'dispatches', dispatchId, {
+        destination: trimmedDest,
+        dispatchDate,
+        travelAdvance: advanceValue,
+      });
+
+      return updatedDispatch;
+    }
+
+    // Local Mode
+    const dispatchesList = await this.getDispatches();
+    const index = dispatchesList.findIndex(d => d.id === dispatchId);
+    if (index === -1) throw new Error('Dispatch not found');
+
+    dispatchesList[index] = {
+      ...dispatchesList[index],
+      destination: trimmedDest,
+      dispatch_date: dispatchDate,
+      target_amount: advanceValue,
+      advance_amount: advanceValue,
+      notes: notes?.trim() || null,
+      updated_at: new Date().toISOString()
+    };
+    setLocalItem(KEYS.DISPATCHES, dispatchesList);
+
+    const assignmentsList = await this.getAssignments();
+    studentAllocations.forEach(alloc => {
+      const aIndex = assignmentsList.findIndex(a =>
+        (alloc.assignmentId && a.id === alloc.assignmentId) ||
+        (a.dispatch_id === dispatchId && a.student_id === alloc.studentId)
+      );
+      if (aIndex !== -1) {
+        assignmentsList[aIndex].calendars_issued = alloc.calendarsIssued;
+      }
+    });
+    setLocalItem(KEYS.ASSIGNMENTS, assignmentsList);
+
+    await this.logAudit('UPDATE_DISPATCH', 'dispatches', dispatchId, {
+      destination: trimmedDest,
+      dispatchDate,
+      travelAdvance: advanceValue,
+    });
+
+    return dispatchesList[index];
+  },
+
   // --------------------------------------------------------------------------
   // SETTLEMENTS CRUD
   // --------------------------------------------------------------------------
@@ -753,6 +865,97 @@ export const StorageService = {
     });
 
     return newSettlement;
+  },
+
+  async updateSettlement(
+    settlementId: string,
+    cashAmount: number,
+    gpayAmount: number,
+    calendarsReturned: number,
+    expenses: number,
+    settlementDate: string,
+    notes?: string
+  ): Promise<Settlement> {
+    const cash = Math.max(0, isNaN(cashAmount) ? 0 : cashAmount);
+    const gpay = Math.max(0, isNaN(gpayAmount) ? 0 : gpayAmount);
+    const exp = Math.max(0, isNaN(expenses) ? 0 : expenses);
+    const returned = Math.max(0, isNaN(calendarsReturned) ? 0 : calendarsReturned);
+
+    if (returned < 0 || !Number.isInteger(returned)) {
+      throw new Error('Calendars returned must be a non-negative integer');
+    }
+
+    const settlements = await this.getSettlements();
+    const existing = settlements.find(s => s.id === settlementId);
+    if (!existing) throw new Error('Settlement record not found');
+
+    const assignments = await this.getAssignments();
+    const assignment = assignments.find(a => a.id === existing.dispatch_assignment_id);
+    if (assignment && returned > assignment.calendars_issued) {
+      throw new Error(
+        `Returned calendars (${returned}) cannot exceed issued quantity (${assignment.calendars_issued}) for this student.`
+      );
+    }
+
+    const totalCollected = calculateTotalCollected(cash, gpay);
+    const netCollection = calculateNetCollection(totalCollected, exp);
+    const nowIso = new Date().toISOString();
+
+    if (this.isLiveSupabase() && supabase) {
+      const { data, error } = await supabase
+        .from('settlements')
+        .update({
+          cash_amount: cash,
+          gpay_amount: gpay,
+          calendars_returned: returned,
+          expenses: exp,
+          settlement_date: settlementDate || existing.settlement_date,
+          notes: notes?.trim() || null,
+          updated_at: nowIso
+        })
+        .eq('id', settlementId)
+        .select()
+        .single();
+      if (error) throw error;
+
+      await this.logAudit('UPDATE_SETTLEMENT', 'settlements', settlementId, {
+        cash,
+        gpay,
+        total: totalCollected,
+        expenses: exp,
+        net: netCollection,
+        returned
+      });
+
+      return data;
+    }
+
+    // Local Mode
+    const index = settlements.findIndex(s => s.id === settlementId);
+    settlements[index] = {
+      ...settlements[index],
+      cash_amount: cash,
+      gpay_amount: gpay,
+      calendars_returned: returned,
+      expenses: exp,
+      total_collected: totalCollected,
+      net_collection: netCollection,
+      settlement_date: settlementDate || existing.settlement_date,
+      notes: notes?.trim() || null,
+      updated_at: nowIso
+    };
+    setLocalItem(KEYS.SETTLEMENTS, settlements);
+
+    await this.logAudit('UPDATE_SETTLEMENT', 'settlements', settlementId, {
+      cash,
+      gpay,
+      total: totalCollected,
+      expenses: exp,
+      net: netCollection,
+      returned
+    });
+
+    return settlements[index];
   },
 
   // --------------------------------------------------------------------------

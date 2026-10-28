@@ -45,7 +45,7 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto modal-backdrop no-print">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto modal-backdrop no-print">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
@@ -54,17 +54,17 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal Dialog Box */}
       <div
-        className={`relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full ${widthClasses[maxWidth]} my-8 z-10 overflow-hidden transform transition-all animate-in zoom-in-95 duration-200`}
+        className={`relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full ${widthClasses[maxWidth]} my-auto sm:my-8 z-10 overflow-hidden transform transition-all animate-in zoom-in-95 duration-200`}
       >
         {/* Modal Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between bg-slate-50/70">
+        <div className="px-5 py-4 sm:px-6 sm:py-5 border-b border-slate-100 flex items-start justify-between bg-slate-50/70">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-            {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
+            <h3 className="text-base sm:text-lg font-bold text-slate-900">{title}</h3>
+            {subtitle && <p className="text-[11px] sm:text-xs text-slate-500 mt-1">{subtitle}</p>}
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors shrink-0"
             aria-label="Close dialog"
           >
             <X className="w-5 h-5" />
@@ -72,7 +72,7 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 max-h-[calc(85vh-120px)] overflow-y-auto custom-scrollbar">
+        <div className="p-4 sm:p-6 max-h-[calc(88vh-100px)] overflow-y-auto custom-scrollbar">
           {children}
         </div>
       </div>
