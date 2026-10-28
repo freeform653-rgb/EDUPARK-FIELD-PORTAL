@@ -14,6 +14,7 @@ import {
 import {
   AlertCircle,
   AlertTriangle,
+  BookOpen,
   CheckCircle2
 } from 'lucide-react';
 
